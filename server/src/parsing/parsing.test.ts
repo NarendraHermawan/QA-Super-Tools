@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeCdnLink } from './cdnLink.js';
+import { cdnUrlForHealthCheck, normalizeCdnLink } from './cdnLink.js';
 import {
   isRelevantSubWeek,
   parseCellDate,
@@ -165,6 +165,21 @@ describe('cdnLink', () => {
     ).toBe('https://dl.dir.freefiremobile.com/common/OB53/ID/foo/overview.jpg');
     expect(normalizeCdnLink('embed', 'https://dl.dir.freefiremobile.com/common/')).toBeNull();
     expect(normalizeCdnLink('Rekomendasi Official', 'https://x/')).toBeNull();
+  });
+
+  it('rewrites .ff_extend to .jpg for health checks', () => {
+    expect(
+      cdnUrlForHealthCheck(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/100626_foo/overview1.ff_extend',
+      ),
+    ).toBe(
+      'https://dl.dir.freefiremobile.com/common/OB53/ID/100626_foo/overview1.jpg',
+    );
+    expect(
+      cdnUrlForHealthCheck(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/foo/overview.jpg',
+      ),
+    ).toBe('https://dl.dir.freefiremobile.com/common/OB53/ID/foo/overview.jpg');
   });
 });
 

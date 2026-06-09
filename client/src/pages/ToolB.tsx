@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  fetchChecklistWeek,
+  fetchConfirmedBugs,
+  saveChecklistBatch,
+  saveChecklistItem,
+  saveConfirmedBug,
+} from '../api/checklist';
 import { fetchWeek } from '../api/client';
 import { BugControls } from '../components/BugControls';
 import { DateFilterBar } from '../components/DateFilterBar';
@@ -12,8 +19,13 @@ import {
   ToolBChecklistGroups,
 } from '../components/ToolBChecklistGroups';
 import { useAppStore } from '../store/useAppStore';
-import type { BannerRow } from '../types';
-import { countCheckedUnique, groupChecklistRows } from '../utils/checklist';
+import type { BannerRow, ConfirmedBug } from '../types';
+import {
+  checklistStorageDate,
+  countCheckedUnique,
+  groupChecklistRows,
+  resolveCheckedForDate,
+} from '../utils/checklist';
 import { defaultDateForWeek, isWeekViewAll } from '../utils/date';
 import { applyToolBFilters, splitByCraftland } from '../utils/placements';
 import { LoadingState } from '../components/ui/LoadingState';
@@ -32,13 +44,21 @@ export function ToolB() {
   const setPlacements = useAppStore((s) => s.setPlacements);
   const includeCraftland = useAppStore((s) => s.includeCraftland);
   const checkedRowIds = useAppStore((s) => s.checkedRowIds);
+  const setCheckedRowIds = useAppStore((s) => s.setCheckedRowIds);
+  const checklistWeekId = useAppStore((s) => s.checklistWeekId);
+  const checklistByDate = useAppStore((s) => s.checklistByDate);
+  const setChecklistWeekState = useAppStore((s) => s.setChecklistWeekState);
+  const mergeChecklistDate = useAppStore((s) => s.mergeChecklistDate);
+  const setChecklistDate = useAppStore((s) => s.setChecklistDate);
   const toggleChecked = useAppStore((s) => s.toggleChecked);
   const confirmedBugs = useAppStore((s) => s.confirmedBugs);
+  const setConfirmedBugs = useAppStore((s) => s.setConfirmedBugs);
   const confirmBug = useAppStore((s) => s.confirmBug);
 
   const [rows, setRows] = useState<BannerRow[]>([]);
   const [days, setDays] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checklistLoading, setChecklistLoading] = useState(false);
   const [error, setError] = useState('');
   const [brokenRows, setBrokenRows] = useState<Set<string>>(new Set());
 
@@ -51,6 +71,7 @@ export function ToolB() {
   const bugReportDate = viewAllWeek
     ? (selectedWeek?.start ?? '')
     : activeDate;
+  const storageDate = checklistStorageDate(activeDate, viewAllWeek);
 
   useEffect(() => {
     if (!selectedWeek) {
@@ -70,6 +91,28 @@ export function ToolB() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, [selectedWeek, selectedDate, setSelectedDate, navigate]);
+
+  useEffect(() => {
+    if (!selectedWeek) return;
+
+    let cancelled = false;
+    setChecklistLoading(true);
+
+    fetchChecklistWeek(selectedWeek.id)
+      .then((state) => {
+        if (!cancelled) setChecklistWeekState(selectedWeek.id, state.byDate);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) console.error('Failed to load checklist storage:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setChecklistLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWeek, setChecklistWeekState]);
 
   const { banner, craftland } = useMemo(
     () => splitByCraftland(rows),
@@ -91,6 +134,113 @@ export function ToolB() {
   const craftlandGrouped = useMemo(
     () => groupChecklistRows(craftlandFiltered, activeDate),
     [craftlandFiltered, activeDate],
+  );
+
+  const allFilteredRows = useMemo(
+    () =>
+      includeCraftland
+        ? [...bannerFiltered, ...craftlandFiltered]
+        : bannerFiltered,
+    [bannerFiltered, craftlandFiltered, includeCraftland],
+  );
+
+  const activeRowIds = useMemo(() => {
+    if (viewAllWeek) return allFilteredRows.map((row) => row.id);
+    const grouped = groupChecklistRows(allFilteredRows, activeDate);
+    return grouped.active.map((row) => row.id);
+  }, [allFilteredRows, activeDate, viewAllWeek]);
+
+  useEffect(() => {
+    if (!selectedWeek || checklistWeekId !== selectedWeek.id) return;
+
+    const { checkedIds, carryOverIds } = resolveCheckedForDate(
+      checklistByDate,
+      activeDate,
+      days,
+      activeRowIds,
+      viewAllWeek,
+    );
+
+    setCheckedRowIds(checkedIds);
+
+    if (carryOverIds.length > 0) {
+      mergeChecklistDate(storageDate, carryOverIds);
+      void saveChecklistBatch(selectedWeek.id, storageDate, carryOverIds).catch(
+        (err: Error) => console.error('Failed to save carry-over checks:', err),
+      );
+    }
+  }, [
+    selectedWeek,
+    checklistWeekId,
+    checklistByDate,
+    activeDate,
+    days,
+    activeRowIds,
+    viewAllWeek,
+    storageDate,
+    setCheckedRowIds,
+    mergeChecklistDate,
+  ]);
+
+  useEffect(() => {
+    if (!selectedWeek) return;
+
+    let cancelled = false;
+    fetchConfirmedBugs(selectedWeek.id, storageDate)
+      .then((data) => {
+        if (!cancelled) setConfirmedBugs(data.bugs);
+      })
+      .catch((err: Error) => {
+        if (!cancelled) console.error('Failed to load confirmed bugs:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedWeek, storageDate, setConfirmedBugs]);
+
+  const handleToggleChecked = useCallback(
+    (rowId: string) => {
+      if (!selectedWeek) return;
+
+      const wasChecked = checkedRowIds.has(rowId);
+      const nextChecked = !wasChecked;
+      toggleChecked(rowId);
+
+      const current = checklistByDate[storageDate] ?? [];
+      const updated = nextChecked
+        ? [...new Set([...current, rowId])]
+        : current.filter((id) => id !== rowId);
+      setChecklistDate(storageDate, updated);
+
+      void saveChecklistItem(
+        selectedWeek.id,
+        storageDate,
+        rowId,
+        nextChecked,
+      ).catch((err: Error) =>
+        console.error('Failed to save checklist item:', err),
+      );
+    },
+    [
+      selectedWeek,
+      checkedRowIds,
+      toggleChecked,
+      storageDate,
+      checklistByDate,
+      setChecklistDate,
+    ],
+  );
+
+  const handleConfirmBug = useCallback(
+    (bug: ConfirmedBug) => {
+      if (!selectedWeek) return;
+      confirmBug(bug);
+      void saveConfirmedBug(selectedWeek.id, bug).catch((err: Error) =>
+        console.error('Failed to save confirmed bug:', err),
+      );
+    },
+    [selectedWeek, confirmBug],
   );
 
   const bannerProgress = useMemo(
@@ -122,7 +272,9 @@ export function ToolB() {
     setBrokenRows((prev) => new Set(prev).add(rowId));
   };
 
-  if (loading) return <LoadingState message="Loading checklist…" />;
+  if (loading || checklistLoading) {
+    return <LoadingState message="Loading checklist…" />;
+  }
   if (error) {
     return (
       <div className="page-shell">
@@ -139,7 +291,7 @@ export function ToolB() {
       <div className="page-shell space-y-5">
         <PageHeader
           title="In-Game QA Checklist"
-          description="Verify banner state per day. Craftland maps are optional and tracked separately."
+          description="Verify banner state per day. Checks are saved per date; still-active items carry over from previous days in the same week."
         />
 
         <StatCard
@@ -196,9 +348,9 @@ export function ToolB() {
             checkedRowIds={checkedRowIds}
             brokenRows={brokenRows}
             confirmedBugs={confirmedBugs}
-            onToggleChecked={toggleChecked}
+            onToggleChecked={handleToggleChecked}
             onBroken={markBroken}
-            onConfirmBug={confirmBug}
+            onConfirmBug={handleConfirmBug}
           />
         ) : (
           <ToolBChecklistGroups
@@ -207,9 +359,9 @@ export function ToolB() {
             checkedRowIds={checkedRowIds}
             brokenRows={brokenRows}
             confirmedBugs={confirmedBugs}
-            onToggleChecked={toggleChecked}
+            onToggleChecked={handleToggleChecked}
             onBroken={markBroken}
-            onConfirmBug={confirmBug}
+            onConfirmBug={handleConfirmBug}
           />
         )}
 
@@ -248,9 +400,9 @@ export function ToolB() {
                 checkedRowIds={checkedRowIds}
                 brokenRows={brokenRows}
                 confirmedBugs={confirmedBugs}
-                onToggleChecked={toggleChecked}
+                onToggleChecked={handleToggleChecked}
                 onBroken={markBroken}
-                onConfirmBug={confirmBug}
+                onConfirmBug={handleConfirmBug}
               />
             ) : (
               <ToolBChecklistGroups
@@ -259,9 +411,9 @@ export function ToolB() {
                 checkedRowIds={checkedRowIds}
                 brokenRows={brokenRows}
                 confirmedBugs={confirmedBugs}
-                onToggleChecked={toggleChecked}
+                onToggleChecked={handleToggleChecked}
                 onBroken={markBroken}
-                onConfirmBug={confirmBug}
+                onConfirmBug={handleConfirmBug}
               />
             )}
           </>

@@ -69,3 +69,11 @@ export interface CdnCheckResponse {
   status: 'ok' | 'broken';
   url: string;
 }
+
+export interface ConfirmedBug {
+  id: string;
+  eventName: string;
+  placement: CanonicalPlacement;
+  cdnUrl: string | null;
+  date: string;
+}

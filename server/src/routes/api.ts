@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { getCdnCheckCache, setCdnCheckCache } from '../cdnCheckCache.js';
+import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
+import { checklistRouter } from './checklist.js';
 import {
   fetchWeekById,
   fetchWeeks,
@@ -7,6 +10,8 @@ import {
 } from '../services/dataService.js';
 
 export const apiRouter = Router();
+
+apiRouter.use('/checklist', checklistRouter);
 
 apiRouter.get('/weeks', async (_req, res, next) => {
   try {
@@ -58,28 +63,39 @@ apiRouter.post('/refresh', async (_req, res, next) => {
 
 apiRouter.get('/cdn-check', async (req, res, next) => {
   try {
-    const url = String(req.query.url ?? '');
-    if (!url || !/^https?:\/\//i.test(url)) {
+    const rawUrl = String(req.query.url ?? '');
+    if (!rawUrl || !/^https?:\/\//i.test(rawUrl)) {
       res.status(400).json({ error: 'Valid url query parameter is required' });
+      return;
+    }
+
+    const url = cdnUrlForHealthCheck(rawUrl);
+
+    const cached = getCdnCheckCache(url);
+    if (cached) {
+      res.json({ status: cached, url });
       return;
     }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
 
+    let status: 'ok' | 'broken' = 'broken';
     try {
       const response = await fetch(url, {
         method: 'HEAD',
         signal: controller.signal,
         redirect: 'follow',
       });
-      clearTimeout(timeout);
-      const status = response.ok ? 'ok' : 'broken';
-      res.json({ status, url });
+      status = response.ok ? 'ok' : 'broken';
     } catch {
+      status = 'broken';
+    } finally {
       clearTimeout(timeout);
-      res.json({ status: 'broken', url });
     }
+
+    setCdnCheckCache(url, status);
+    res.json({ status, url });
   } catch (error) {
     next(error);
   }

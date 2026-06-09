@@ -4,6 +4,7 @@ import {
   isActiveOnDate,
   sameCalendarDay,
   startsOnDate,
+  WEEK_VIEW_ALL,
 } from './date';
 
 export interface GroupedChecklist {
@@ -92,6 +93,48 @@ export function countCheckedUnique(
     total: unique.length,
     checked: unique.filter((r) => checkedIds.has(r.id)).length,
   };
+}
+
+export function checklistStorageDate(
+  activeDate: string,
+  viewAllWeek: boolean,
+): string {
+  return viewAllWeek ? WEEK_VIEW_ALL : activeDate;
+}
+
+export function resolveCheckedForDate(
+  byDate: Record<string, string[]>,
+  selectedDate: string,
+  weekDays: string[],
+  activeRowIds: string[],
+  viewAllWeek: boolean,
+): { checkedIds: Set<string>; carryOverIds: string[] } {
+  const storageDate = checklistStorageDate(selectedDate, viewAllWeek);
+
+  if (viewAllWeek) {
+    const checkedIds = new Set(byDate[storageDate] ?? []);
+    for (const day of weekDays) {
+      for (const rowId of byDate[day] ?? []) {
+        checkedIds.add(rowId);
+      }
+    }
+    return { checkedIds, carryOverIds: [] };
+  }
+
+  const checkedIds = new Set(byDate[storageDate] ?? []);
+  const carryOverIds: string[] = [];
+  const previousDays = weekDays.filter((day) => day < selectedDate);
+
+  for (const rowId of activeRowIds) {
+    if (checkedIds.has(rowId)) continue;
+    const carried = previousDays.some((day) => byDate[day]?.includes(rowId));
+    if (carried) {
+      checkedIds.add(rowId);
+      carryOverIds.push(rowId);
+    }
+  }
+
+  return { checkedIds, carryOverIds };
 }
 
 export function groupTitle(group: ChecklistGroup): string {

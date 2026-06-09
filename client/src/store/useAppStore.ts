@@ -8,12 +8,22 @@ interface AppState {
   includeCraftland: boolean;
   checkedRowIds: Set<string>;
   confirmedBugs: ConfirmedBug[];
+  checklistWeekId: string | null;
+  checklistByDate: Record<string, string[]>;
   setSelectedWeek: (week: SubWeek | null) => void;
   setSelectedDate: (date: string | null) => void;
   togglePlacement: (placement: CanonicalPlacement) => void;
   setPlacements: (placements: CanonicalPlacement[]) => void;
   setIncludeCraftland: (include: boolean) => void;
+  setCheckedRowIds: (rowIds: Set<string>) => void;
+  setChecklistWeekState: (
+    weekId: string,
+    byDate: Record<string, string[]>,
+  ) => void;
+  mergeChecklistDate: (date: string, rowIds: string[]) => void;
+  setChecklistDate: (date: string, rowIds: string[]) => void;
   toggleChecked: (rowId: string) => void;
+  setConfirmedBugs: (bugs: ConfirmedBug[]) => void;
   confirmBug: (bug: ConfirmedBug) => void;
   resetSession: () => void;
 }
@@ -25,6 +35,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   includeCraftland: false,
   checkedRowIds: new Set<string>(),
   confirmedBugs: [],
+  checklistWeekId: null,
+  checklistByDate: {},
   setSelectedWeek: (week) => set({ selectedWeek: week }),
   setSelectedDate: (date) => set({ selectedDate: date }),
   togglePlacement: (placement) => {
@@ -42,12 +54,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   setPlacements: (placements) => set({ selectedPlacements: placements }),
   setIncludeCraftland: (include) => set({ includeCraftland: include }),
+  setCheckedRowIds: (rowIds) => set({ checkedRowIds: rowIds }),
+  setChecklistWeekState: (weekId, byDate) =>
+    set({ checklistWeekId: weekId, checklistByDate: byDate }),
+  mergeChecklistDate: (date, rowIds) => {
+    const existing = new Set(get().checklistByDate[date] ?? []);
+    for (const rowId of rowIds) existing.add(rowId);
+    set({
+      checklistByDate: {
+        ...get().checklistByDate,
+        [date]: [...existing],
+      },
+    });
+  },
+  setChecklistDate: (date, rowIds) =>
+    set({
+      checklistByDate: {
+        ...get().checklistByDate,
+        [date]: rowIds,
+      },
+    }),
   toggleChecked: (rowId) => {
     const next = new Set(get().checkedRowIds);
     if (next.has(rowId)) next.delete(rowId);
     else next.add(rowId);
     set({ checkedRowIds: next });
   },
+  setConfirmedBugs: (bugs) => set({ confirmedBugs: bugs }),
   confirmBug: (bug) => {
     const existing = get().confirmedBugs;
     if (existing.some((item) => item.id === bug.id)) return;
@@ -61,5 +94,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       includeCraftland: false,
       checkedRowIds: new Set(),
       confirmedBugs: [],
+      checklistWeekId: null,
+      checklistByDate: {},
     }),
 }));

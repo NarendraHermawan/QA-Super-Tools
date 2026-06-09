@@ -24,6 +24,11 @@ export function normalizeCdnLink(
   return `${base}${path}`;
 }
 
+/** CDN stores .ff_extend assets; health checks use the equivalent .jpg URL. */
+export function cdnUrlForHealthCheck(url: string): string {
+  return url.replace(/\.ff_extend/gi, '.jpg');
+}
+
 export function displayNameFromCdn(value: string | null): string {
   if (!value) return '(unnamed)';
   const parts = value.split('/');

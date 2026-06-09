@@ -1,5 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { checkCdn } from '../api/client';
+import {
+  getClientCdnCheckCache,
+  setClientCdnCheckCache,
+} from '../utils/cdnCheckCache';
+import { cdnUrlForHealthCheck } from '../utils/cdnLink';
 import { StatusBadge } from './ui/StatusBadge';
 
 type HealthStatus = 'checking' | 'ok' | 'broken' | 'na';
@@ -9,8 +14,17 @@ interface Props {
   onBroken?: () => void;
 }
 
+function resolveInitialStatus(url: string | null): HealthStatus {
+  if (!url) return 'na';
+  const cached = getClientCdnCheckCache(cdnUrlForHealthCheck(url));
+  return cached ?? 'checking';
+}
+
 export function CdnHealthIndicator({ url, onBroken }: Props) {
-  const [status, setStatus] = useState<HealthStatus>('na');
+  const onBrokenRef = useRef(onBroken);
+  onBrokenRef.current = onBroken;
+
+  const [status, setStatus] = useState<HealthStatus>(() => resolveInitialStatus(url));
 
   useEffect(() => {
     if (!url) {
@@ -18,40 +32,56 @@ export function CdnHealthIndicator({ url, onBroken }: Props) {
       return;
     }
 
+    const checkUrl = cdnUrlForHealthCheck(url);
+    const cached = getClientCdnCheckCache(checkUrl);
+    if (cached) {
+      setStatus(cached);
+      if (cached === 'broken') onBrokenRef.current?.();
+      return;
+    }
+
     let cancelled = false;
     setStatus('checking');
 
-    const img = new Image();
-    img.onload = () => {
-      if (!cancelled) setStatus('ok');
+    const markBroken = () => {
+      if (cancelled) return;
+      setClientCdnCheckCache(checkUrl, 'broken');
+      setStatus('broken');
+      onBrokenRef.current?.();
     };
+
+    const markOk = () => {
+      if (cancelled) return;
+      setClientCdnCheckCache(checkUrl, 'ok');
+      setStatus('ok');
+    };
+
+    const img = new Image();
+    img.onload = markOk;
     img.onerror = async () => {
       if (cancelled) return;
       try {
-        const result = await checkCdn(url);
-        if (!cancelled) {
-          setStatus(result.status === 'ok' ? 'ok' : 'broken');
-          if (result.status === 'broken') onBroken?.();
+        const result = await checkCdn(checkUrl);
+        if (cancelled) return;
+        if (result.status === 'ok') {
+          markOk();
+        } else {
+          markBroken();
         }
       } catch {
-        if (!cancelled) {
-          setStatus('broken');
-          onBroken?.();
-        }
+        markBroken();
       }
     };
-    img.src = url;
+    img.src = checkUrl;
 
     const timeout = setTimeout(() => {
-      if (!cancelled) {
-        setStatus((current) => {
-          if (current === 'checking') {
-            onBroken?.();
-            return 'broken';
-          }
-          return current;
-        });
-      }
+      if (cancelled) return;
+      setStatus((current) => {
+        if (current !== 'checking') return current;
+        setClientCdnCheckCache(checkUrl, 'broken');
+        onBrokenRef.current?.();
+        return 'broken';
+      });
     }, 5000);
 
     return () => {
@@ -60,7 +90,7 @@ export function CdnHealthIndicator({ url, onBroken }: Props) {
       img.onload = null;
       img.onerror = null;
     };
-  }, [url, onBroken]);
+  }, [url]);
 
   if (status === 'na') {
     return <StatusBadge variant="neutral">No URL</StatusBadge>;

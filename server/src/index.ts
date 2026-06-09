@@ -3,6 +3,8 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { assertConfig, config } from './config.js';
+import { ensureSchema, isDbEnabled } from './db/client.js';
+import { storageBackend } from './db/checklistRepo.js';
 import { apiRouter } from './routes/api.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,10 +16,23 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    storage: storageBackend(),
+  });
 });
 
 app.use('/api', apiRouter);
+
+void ensureSchema().then(() => {
+  if (isDbEnabled()) {
+    console.log('Neon checklist storage ready');
+  } else {
+    console.log(
+      'DATABASE_URL not set — checklist uses in-memory storage (resets on restart)',
+    );
+  }
+});
 
 if (config.nodeEnv === 'production') {
   const clientDist = path.resolve(__dirname, '../../client/dist');

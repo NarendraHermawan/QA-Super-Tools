@@ -360,7 +360,7 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 | Non-week tabs | Ignored (`Patch Note`, `Master Copy`, etc.) |
 | Cross-week carry-over | Tool B shows only the selected sub-week's rows; banners spanning into the next week may not appear on later dates until that sub-week is selected |
 | Craftland | Shown as its own placement; non-URL rows skip CDN health check |
-| Checkbox / bug state | In-memory only; resets on page refresh |
+| Checkbox / bug state | Persisted via Neon when `DATABASE_URL` is set; in-memory fallback otherwise. Still-active items carry over from previous days in the same week |
 | Write-back to sheet | Not supported (read-only) |
 | Authentication | None in v1.0 (single-user local tool) |
 
@@ -376,7 +376,7 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 
 ## Phase 2 roadmap
 
-- Persistent checkbox state (localStorage or database)
+- ~~Persistent checkbox state (localStorage or database)~~ ✅ Neon PostgreSQL
 - Multi-user sharing via hosted deployment
 - Write-back to Google Sheets (requires user OAuth)
 - Slack daily digest
@@ -396,6 +396,8 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 | `CDN_BASE_URL` | No | `https://dl.dir.freefiremobile.com/common/` | CDN prefix for relative paths |
 | `PORT` | No | `3001` | Server port |
 | `CACHE_TTL_MS` | No | `300000` | Sheet data cache TTL (5 min) |
+| `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
+| `DATABASE_URL` | No | — | Neon PostgreSQL connection string for checklist persistence |
 | `NODE_ENV` | No | `development` | `production` enables static file serving |
 
 ---
