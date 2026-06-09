@@ -1,11 +1,11 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
-const NAV = [
-  { path: '/', label: 'Home' },
-  { path: '/tool-a', label: 'CDN Checker' },
-  { path: '/tool-b', label: 'QA Checklist' },
-] as const;
+const NAV: Array<{ path: string; label: string; exact?: boolean }> = [
+  { path: '/', label: 'Home', exact: true },
+  { path: '/banner', label: 'Banner QA' },
+  { path: '/splash', label: 'Splash & Anno' },
+];
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -19,14 +19,13 @@ export function AppLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
             <Link to="/" className="text-sm font-semibold tracking-tight text-ink">
-              FFID Banner QA
+              FFID LiveOps QA
             </Link>
             <nav className="hidden items-center gap-1 sm:flex">
               {NAV.map((item) => {
-                const active =
-                  item.path === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.path);
+                const active = item.exact
+                  ? pathname === item.path
+                  : pathname.startsWith(item.path);
                 return (
                   <Link
                     key={item.path}

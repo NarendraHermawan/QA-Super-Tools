@@ -7,7 +7,7 @@ import { defaultDateForWeek, todayWib } from '../utils/date';
 import { LoadingState } from '../components/ui/LoadingState';
 import { PageHeader } from '../components/ui/PageHeader';
 
-export function EntryPoint() {
+export function BannerEntry() {
   const navigate = useNavigate();
   const setSelectedWeek = useAppStore((s) => s.setSelectedWeek);
   const setSelectedDate = useAppStore((s) => s.setSelectedDate);
@@ -68,7 +68,7 @@ export function EntryPoint() {
   return (
     <div className="page-shell space-y-8">
       <PageHeader
-        title="Select scope"
+        title="Banner QA — Select scope"
         description="Choose a sub-week or a specific date, then open the CDN checker or in-game QA checklist."
       />
 

@@ -75,7 +75,7 @@ export function ToolB() {
 
   useEffect(() => {
     if (!selectedWeek) {
-      navigate('/');
+      navigate('/banner');
       return;
     }
 

@@ -73,3 +73,48 @@ export const PLACEMENTS: CanonicalPlacement[] = [
   ...BANNER_PLACEMENTS,
   CRAFTLAND_PLACEMENT,
 ];
+
+export type SplashAssetType = 'splash' | 'anno';
+
+export type SplashStatus =
+  | 'TRELLO DONE'
+  | 'NEED TO UPDATE TRELLO'
+  | 'SCHEDULED'
+  | 'DONE'
+  | 'unknown';
+
+export interface SplashRecord {
+  recordId: string;
+  sourceRowIndex: number;
+  assetType: SplashAssetType;
+  desc: string;
+  start: string;
+  end: string;
+  sortId: number | null;
+  uniqueId: string;
+  cdnUrl: string | null;
+  status: SplashStatus;
+  goPos: string | null;
+  subGoPos: string | null;
+}
+
+export interface SplashUploadSections {
+  ready: SplashRecord[];
+  blocked: SplashRecord[];
+  needsReview: SplashRecord[];
+  scheduled: SplashRecord[];
+}
+
+export interface SplashChecklistGroups {
+  appear: SplashRecord[];
+  disappear: SplashRecord[];
+  active: SplashRecord[];
+}
+
+export interface SplashConfirmedBug {
+  id: string;
+  eventName: string;
+  assetType: SplashAssetType;
+  cdnUrl: string | null;
+  date: string;
+}

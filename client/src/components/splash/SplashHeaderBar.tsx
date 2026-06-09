@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/useAppStore';
+import { useSplashStore } from '../../store/useSplashStore';
 
-export function HeaderBar() {
+export function SplashHeaderBar() {
   const navigate = useNavigate();
-  const selectedWeek = useAppStore((s) => s.selectedWeek);
-  const resetSession = useAppStore((s) => s.resetSession);
+  const monthId = useSplashStore((s) => s.monthId);
+  const selectedDate = useSplashStore((s) => s.selectedDate);
+  const resetSplashSession = useSplashStore((s) => s.resetSplashSession);
 
-  if (!selectedWeek) return null;
+  if (!monthId || !selectedDate) return null;
 
   return (
     <div className="border-b border-line bg-surface-sunken">
@@ -15,20 +16,20 @@ export function HeaderBar() {
           <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">
             Active scope
           </p>
-          <p className="truncate font-medium text-ink">{selectedWeek.label}</p>
+          <p className="truncate font-medium text-ink">{monthId}</p>
           <p className="truncate text-2xs text-ink-muted">
-            Sheet tab: {selectedWeek.tabName}
+            Date: {selectedDate} (WIB)
           </p>
         </div>
         <button
           type="button"
           onClick={() => {
-            resetSession();
-            navigate('/banner');
+            resetSplashSession();
+            navigate('/splash');
           }}
           className="btn-secondary shrink-0"
         >
-          Change week
+          Change month / date
         </button>
       </div>
     </div>

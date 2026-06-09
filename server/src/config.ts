@@ -25,8 +25,14 @@ export const config = {
   adminUsername: process.env.ADMIN_USERNAME ?? 'admin',
   adminPassword: process.env.ADMIN_PASSWORD ?? '',
   sessionSecret: process.env.SESSION_SECRET ?? '',
+  splashSheetId: process.env.SPLASH_SHEET_ID ?? '',
+  splashCacheTtlMs: Number(process.env.SPLASH_CACHE_TTL_MS ?? 300_000),
   nodeEnv: process.env.NODE_ENV ?? 'development',
 };
+
+export function isSplashConfigured(): boolean {
+  return Boolean(config.splashSheetId);
+}
 
 export function assertConfig(): void {
   if (!config.sheetId) {

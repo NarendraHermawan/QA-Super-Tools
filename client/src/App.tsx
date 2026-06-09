@@ -2,10 +2,14 @@ import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/AppLayout';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import { EntryPoint } from './pages/EntryPoint';
+import { BannerEntry } from './pages/BannerEntry';
 import { Login } from './pages/Login';
+import { SplashEntry } from './pages/SplashEntry';
 import { ToolA } from './pages/ToolA';
 import { ToolB } from './pages/ToolB';
+import { ToolC } from './pages/ToolC';
+import { ToolD } from './pages/ToolD';
+import { ToolSelector } from './pages/ToolSelector';
 import { useAuthStore } from './store/useAuthStore';
 
 export default function App() {
@@ -25,9 +29,13 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route path="/" element={<EntryPoint />} />
+        <Route path="/" element={<ToolSelector />} />
+        <Route path="/banner" element={<BannerEntry />} />
+        <Route path="/splash" element={<SplashEntry />} />
         <Route path="/tool-a" element={<ToolA />} />
         <Route path="/tool-b" element={<ToolB />} />
+        <Route path="/tool-c" element={<ToolC />} />
+        <Route path="/tool-d" element={<ToolD />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

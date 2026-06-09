@@ -1,6 +1,6 @@
-# FFID Weekly Banner QA Tools
+# FFID LiveOps QA Tools
 
-Web application for the Free Fire Indonesia LiveOps QA team to automate weekly banner CDN upload checks and in-game QA checklists. The tool reads directly from the master Google Sheet (`[FFID] Weekly CDN Checklist`) and surfaces what needs CDN upload, what should appear/disappear in-game each day, and whether CDN links resolve.
+Web application for the Free Fire Indonesia LiveOps QA team: **Banner QA** (weekly sheet — Tools A/B) and **Splash & Anno** (in-game publishing — Tools C/D). Reads from Google Sheets, surfaces missing CDN uploads, day-by-day in-game checklists, and CDN link health.
 
 ## What this solves
 
@@ -51,11 +51,35 @@ Answers: *"When I open the game right now, what should I see — and what should
 - Confirmed CDN bugs persisted per date
 - Placement filter; optional Craftland section
 
-### Shared entry point (`/`)
+### Tool C — Splash & Anno Upload Checker (`/tool-c`)
 
-**Mode 1 — Choose a week:** dropdown of latest 4 sub-weeks (most recent first)
+Answers: *"Which splash and announcement assets need CDN upload for this day?"*
 
-**Mode 2 — Choose a date:** date-picker auto-detects the covering sub-week; warns if outside the 4-week window
+- Data from In-Game Publishing workbook tab **`ID - Settings`** (`SPLASH_SHEET_ID`)
+- Sections: **Ready to upload**, **Blocked**, **Needs review** (+ **Scheduled** when Show all)
+- Grouped by asset type: Splash, Anno, or **Both** (same sheet row, both URLs missing)
+- CDN health + confirm bug (reuses `/api/cdn-check`)
+- Month + date scope from `/splash` entry
+
+### Tool D — Splash & Anno In-Game QA (`/tool-d`)
+
+Answers: *"What splash/anno should appear, disappear, or stay active today?"*
+
+- Splash / Anno tabs; per-day date bar within the selected month
+- Groups: **Should APPEAR**, **Should DISAPPEAR**, **Still active**
+- Sort_ID badge with duplicate warnings for active cohort
+- WIB hour display on schedule times
+- Persistent checkboxes in Neon (`splash_checks`) with **carry-over** from earlier days in the month
+
+### Routes
+
+| Path | Purpose |
+|---|---|
+| `/` | Tool selector (Banner QA vs Splash & Anno) |
+| `/banner` | Banner entry — week or date → Tool A / B |
+| `/splash` | Splash entry — month + day → Tool C / D |
+| `/tool-a`, `/tool-b`, `/tool-c`, `/tool-d` | Tools (deep links supported) |
+| `/login` | Admin login |
 
 ### Admin login (`/login`)
 
@@ -81,11 +105,13 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 │  - In-memory TTL cache (sheet data + CDN check results)             │
 │  - CDN HEAD proxy (/api/cdn-check)                                │
 │  - Checklist + bug persistence (/api/checklist/*)                 │
+│  - Splash parser + cache (/api/splash/*)                          │
 └──────────┬─────────────────────────────┬────────────────────────┘
            │                             │
            ▼                             ▼
   Google Sheets API v4          Neon PostgreSQL (optional)
-  (master checklist sheet)      (checklist_checks, confirmed_bugs)
+  (banner + splash sheets)      (checklist_checks, confirmed_bugs,
+                                 splash_checks, splash_bugs)
            │
            ▼
   dl.dir.freefiremobile.com (CDN asset host)
@@ -143,6 +169,20 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 | `POST` | `/api/checklist/:weekId/check-batch` | Batch mark items checked (carry-over) |
 | `GET` | `/api/checklist/:weekId/bugs?date=` | Confirmed bugs for a date |
 | `POST` | `/api/checklist/:weekId/bugs` | Save a confirmed bug |
+| `GET` | `/api/splash/config` | Splash sheet configured + storage backend |
+| `GET` | `/api/splash/months` | Distinct months from splash sheet |
+| `POST` | `/api/splash/refresh` | Bust splash cache and re-fetch |
+| `GET` | `/api/splash/:monthId` | All records + calendar days for month |
+| `GET` | `/api/splash/:monthId/upload?date=&showAll=` | Tool C sections for a date |
+| `GET` | `/api/splash/:monthId/checklist?date=&assetType=` | Tool D groups for a date |
+| `GET` | `/api/splash/:monthId/summary?date=` | Active / ready / blocked counts |
+| `GET` | `/api/splash/:monthId/checks` | Splash checklist state (`byDate`) |
+| `PUT` | `/api/splash/:monthId/check` | Toggle one splash checklist item |
+| `POST` | `/api/splash/:monthId/check-batch` | Batch mark splash items checked |
+| `GET` | `/api/splash/:monthId/bugs?date=` | Confirmed splash bugs for a date |
+| `POST` | `/api/splash/:monthId/bugs` | Save a confirmed splash bug |
+
+Splash routes return **503** with a clear message when `SPLASH_SHEET_ID` is unset (server still boots for Banner QA only).
 
 ---
 
@@ -157,22 +197,22 @@ QA-Super-Tools/
 ├── credentials/              # Service account JSON (gitignored)
 ├── client/                   # React frontend
 │   ├── src/
-│   │   ├── pages/            # EntryPoint, ToolA, ToolB, Login
-│   │   ├── components/       # CdnHealthIndicator, ProtectedRoute, filters, tables
-│   │   ├── api/              # client.ts, checklist.ts, auth.ts
-│   │   ├── store/            # useAppStore, useAuthStore
+│   │   ├── pages/            # ToolSelector, BannerEntry, SplashEntry, ToolA–D, Login
+│   │   ├── components/       # CdnHealthIndicator, splash/*, filters, tables
+│   │   ├── api/              # client.ts, checklist.ts, splash.ts, auth.ts
+│   │   ├── store/            # useAppStore, useAuthStore, useSplashStore
 │   │   └── utils/            # date, checklist, CDN helpers
 │   └── vite.config.ts        # Dev proxy → localhost:3001
 └── server/                   # Express backend
     ├── src/
     │   ├── auth/             # Session token create/verify
     │   ├── db/               # Neon client + checklist repository
-    │   ├── google/           # Sheets client
+    │   ├── google/           # Sheets + splashSheetsClient
     │   ├── middleware/       # requireAuth
-    │   ├── parsing/          # Tab/sub-week/section/date/CDN parsers
-    │   ├── routes/           # api.ts, auth.ts, checklist.ts
-    │   ├── services/         # Data orchestration + sheet cache
-    │   ├── scripts/          # testDb.ts (Neon connection test)
+    │   ├── parsing/          # Banner + splash parsers, date/CDN utils
+    │   ├── routes/           # api.ts, auth.ts, checklist.ts, splashApi.ts
+    │   ├── services/         # dataService + splashService (month cache)
+    │   ├── scripts/          # testDb.ts, migrateSplash tables helper
     │   └── fixtures/         # Test fixtures from real sheet structure
     └── vitest.config.ts
 ```
@@ -194,6 +234,13 @@ QA-Super-Tools/
 1. Open `[FFID] Weekly CDN Checklist` in Google Sheets
 2. Share with the service account email (e.g. `ffid-qa@project.iam.gserviceaccount.com`) as **Viewer**
 3. Copy the Sheet ID from the URL: `https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit`
+
+### 2b. Share the In-Game Publishing sheet (Tools C/D)
+
+1. Open the In-Game Publishing workbook (tab **`ID - Settings`**)
+2. Share with the same service account as **Viewer**
+3. Set `SPLASH_SHEET_ID` in `.env` / Render to that workbook's Sheet ID
+4. Splash DB tables (`splash_checks`, `splash_bugs`) are created automatically on server boot when `DATABASE_URL` is set
 
 ### 3. Neon database (checklist persistence)
 
@@ -473,12 +520,14 @@ npm test    # server + client unit tests
 | `ADMIN_PASSWORD` | Prod | — | Admin password; enables auth when set |
 | `SESSION_SECRET` | Prod | — | Cookie signing secret (min 32 chars) |
 | `PORT` | No | `3001` | Server port (Render sets automatically) |
-| `CACHE_TTL_MS` | No | `300000` | Sheet data cache TTL (5 min) |
+| `CACHE_TTL_MS` | No | `300000` | Banner sheet data cache TTL (5 min) |
 | `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
+| `SPLASH_SHEET_ID` | No | — | In-Game Publishing workbook ID (`ID - Settings` tab) |
+| `SPLASH_CACHE_TTL_MS` | No | `300000` | Splash sheet cache TTL (5 min) |
 | `NODE_ENV` | No | `development` | `production` enables static file serving + requires auth secrets |
 
 \*Required for persistent checklist in production; strongly recommended for team use.
 
 ---
 
-*FFID Weekly Banner QA Tools — built for Free Fire Indonesia LiveOps QA*
+*FFID LiveOps QA Tools — built for Free Fire Indonesia LiveOps QA*

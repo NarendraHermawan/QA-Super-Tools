@@ -1,5 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import { config } from '../config.js';
+import { migrateSplashTables } from '../scripts/migrateSplash.js';
 
 export type SqlClient = ReturnType<typeof neon>;
 
@@ -50,6 +51,8 @@ async function initSchema(): Promise<void> {
       PRIMARY KEY (week_id, check_date, row_id)
     )
   `;
+
+  await migrateSplashTables();
 }
 
 export function resetSchemaReadyForTests(): void {
