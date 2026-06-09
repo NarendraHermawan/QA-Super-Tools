@@ -339,6 +339,21 @@ npm run build    # builds client + server
 npm start        # serves API + static client from server
 ```
 
+### Deploy on Render (free tier)
+
+1. Connect the GitHub repo as a **Web Service** (Node).
+2. **Build command** (must install devDependencies for TypeScript/Vite):
+
+```bash
+npm install --include=dev && npm run build && mkdir -p credentials && printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service-account.json
+```
+
+3. **Start command:** `npm start`
+4. Set env vars from `.env.example` plus `GOOGLE_SERVICE_ACCOUNT_JSON` (full JSON body).
+5. Or use the included `render.yaml` Blueprint.
+
+Render sets `NODE_ENV=production` during build, which skips devDependencies by default — `--include=dev` fixes that.
+
 In production, Express serves `client/dist` as static files and falls back to `index.html` for client-side routing.
 
 ### Tests

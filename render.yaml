@@ -1,0 +1,30 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: qa-super-tools
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: >-
+      npm install --include=dev &&
+      npm run build &&
+      mkdir -p credentials &&
+      printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service-account.json
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GOOGLE_SERVICE_ACCOUNT_KEY
+        value: ./credentials/service-account.json
+      - key: CDN_BASE_URL
+        value: https://dl.dir.freefiremobile.com/common/
+      - key: CACHE_TTL_MS
+        value: "300000"
+      - key: CDN_CHECK_CACHE_TTL_MS
+        value: "600000"
+      - key: SHEET_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
