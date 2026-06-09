@@ -1,0 +1,58 @@
+import type { CanonicalPlacement } from '../types.js';
+
+export const SECTION_ALIASES: Record<string, CanonicalPlacement> = {
+  Overview: 'Overview',
+  'NEW Shopping mall': 'Shopping Mall',
+  Shop: 'Shopping Mall',
+  'Slide banner': 'Slide Banner',
+  'Slide Banner': 'Slide Banner',
+  Gacha: 'Gacha / Luck Royale',
+  'Luck Royale': 'Gacha / Luck Royale',
+  'Icon/Loading Screen/Background': 'Background / Icon',
+  Background: 'Background / Icon',
+  Icon: 'Background / Icon',
+  Event: 'Event',
+  Events: 'Event',
+  Esports: 'Esports',
+  CRAFTLAND: 'Craftland',
+};
+
+export const CANONICAL_PLACEMENTS: CanonicalPlacement[] = [
+  'Overview',
+  'Shopping Mall',
+  'Slide Banner',
+  'Gacha / Luck Royale',
+  'Background / Icon',
+  'Event',
+  'Esports',
+  'Craftland',
+];
+
+export const MONTH_MAP: Record<string, number> = {
+  jan: 1,
+  january: 1,
+  feb: 2,
+  february: 2,
+  mar: 3,
+  march: 3,
+  apr: 4,
+  april: 4,
+  may: 5,
+  mei: 5,
+  jun: 6,
+  june: 6,
+  jul: 7,
+  july: 7,
+  aug: 8,
+  august: 8,
+  sep: 9,
+  sept: 9,
+  september: 9,
+  oct: 10,
+  october: 10,
+  nov: 11,
+  november: 11,
+  dec: 12,
+  december: 12,
+  des: 12,
+};
