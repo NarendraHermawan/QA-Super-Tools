@@ -22,6 +22,9 @@ export const config = {
   cacheTtlMs: Number(process.env.CACHE_TTL_MS ?? 300_000),
   cdnCheckCacheTtlMs: Number(process.env.CDN_CHECK_CACHE_TTL_MS ?? 600_000),
   databaseUrl: process.env.DATABASE_URL ?? '',
+  adminUsername: process.env.ADMIN_USERNAME ?? 'admin',
+  adminPassword: process.env.ADMIN_PASSWORD ?? '',
+  sessionSecret: process.env.SESSION_SECRET ?? '',
   nodeEnv: process.env.NODE_ENV ?? 'development',
 };
 
@@ -31,5 +34,15 @@ export function assertConfig(): void {
   }
   if (!config.serviceAccountKeyPath) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is required in .env');
+  }
+  if (config.nodeEnv === 'production') {
+    if (!config.adminPassword) {
+      throw new Error('ADMIN_PASSWORD is required in production');
+    }
+    if (!config.sessionSecret || config.sessionSecret.length < 32) {
+      throw new Error(
+        'SESSION_SECRET is required in production (min 32 characters)',
+      );
+    }
   }
 }

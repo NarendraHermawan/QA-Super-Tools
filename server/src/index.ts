@@ -1,28 +1,35 @@
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { isAuthEnabled } from './auth/session.js';
 import { assertConfig, config } from './config.js';
 import { ensureSchema, isDbEnabled } from './db/client.js';
 import { storageBackend } from './db/checklistRepo.js';
+import { requireAuth } from './middleware/requireAuth.js';
 import { apiRouter } from './routes/api.js';
+import { authRouter } from './routes/auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 assertConfig();
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
+app.use(cookieParser());
 
 app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
     storage: storageBackend(),
+    auth: isAuthEnabled(),
   });
 });
 
-app.use('/api', apiRouter);
+app.use('/api/auth', authRouter);
+app.use('/api', requireAuth, apiRouter);
 
 void ensureSchema().then(() => {
   if (isDbEnabled()) {

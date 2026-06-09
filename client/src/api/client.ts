@@ -1,7 +1,18 @@
 import type { WeekDetailResponse, WeeksResponse } from '../types';
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
+  const response = await fetch(path, {
+    ...init,
+    credentials: 'include',
+  });
+  if (response.status === 401 && !path.startsWith('/api/auth/')) {
+    if (window.location.pathname !== '/login') {
+      window.location.assign(
+        `/login?from=${encodeURIComponent(window.location.pathname)}`,
+      );
+    }
+    throw new Error('Authentication required');
+  }
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}));
     throw new Error(payload.error || `Request failed: ${response.status}`);

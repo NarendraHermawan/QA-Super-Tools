@@ -377,7 +377,7 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 | Craftland | Shown as its own placement; non-URL rows skip CDN health check |
 | Checkbox / bug state | Persisted via Neon when `DATABASE_URL` is set; in-memory fallback otherwise. Still-active items carry over from previous days in the same week |
 | Write-back to sheet | Not supported (read-only) |
-| Authentication | None in v1.0 (single-user local tool) |
+| Authentication | Simple admin username/password when `ADMIN_PASSWORD` is set |
 
 ### PRD open questions
 
@@ -413,6 +413,9 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 | `CACHE_TTL_MS` | No | `300000` | Sheet data cache TTL (5 min) |
 | `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
 | `DATABASE_URL` | No | — | Neon PostgreSQL connection string for checklist persistence |
+| `ADMIN_USERNAME` | No | `admin` | Admin login username |
+| `ADMIN_PASSWORD` | Prod | — | Admin password; required when `NODE_ENV=production` |
+| `SESSION_SECRET` | Prod | — | Cookie signing secret (min 32 chars); required in production |
 | `NODE_ENV` | No | `development` | `production` enables static file serving |
 
 ---

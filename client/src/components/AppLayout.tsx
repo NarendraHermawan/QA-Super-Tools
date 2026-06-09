@@ -1,5 +1,5 @@
-import { Link, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../store/useAuthStore';
 
 const NAV = [
   { path: '/', label: 'Home' },
@@ -7,8 +7,11 @@ const NAV = [
   { path: '/tool-b', label: 'QA Checklist' },
 ] as const;
 
-export function AppLayout({ children }: { children: ReactNode }) {
+export function AppLayout() {
   const { pathname } = useLocation();
+  const authEnabled = useAuthStore((s) => s.authEnabled);
+  const username = useAuthStore((s) => s.username);
+  const logout = useAuthStore((s) => s.logout);
 
   return (
     <div className="min-h-screen">
@@ -40,12 +43,30 @@ export function AppLayout({ children }: { children: ReactNode }) {
               })}
             </nav>
           </div>
-          <p className="hidden text-2xs text-ink-muted md:block">
-            LiveOps weekly banner operations
-          </p>
+          <div className="flex items-center gap-3">
+            {authEnabled && username && (
+              <p className="hidden text-2xs text-ink-muted md:block">
+                Signed in as {username}
+              </p>
+            )}
+            {authEnabled && (
+              <button
+                type="button"
+                onClick={() => logout().then(() => window.location.assign('/login'))}
+                className="btn-secondary text-2xs"
+              >
+                Sign out
+              </button>
+            )}
+            <p className="hidden text-2xs text-ink-muted lg:block">
+              LiveOps weekly banner operations
+            </p>
+          </div>
         </div>
       </header>
-      <main>{children}</main>
+      <main>
+        <Outlet />
+      </main>
     </div>
   );
 }
