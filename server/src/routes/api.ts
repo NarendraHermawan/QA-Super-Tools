@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { getCdnCheckCache, setCdnCheckCache } from '../cdnCheckCache.js';
+import { resolveCdnOpsUploadUrl } from '../parsing/cdnOpsUpload.js';
 import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
+import { config } from '../config.js';
 import { checklistRouter } from './checklist.js';
 import {
   fetchWeekById,
@@ -56,6 +58,26 @@ apiRouter.post('/refresh', async (_req, res, next) => {
   try {
     const data = await refreshData();
     res.json(data);
+  } catch (error) {
+    next(error);
+  }
+});
+
+apiRouter.get('/cdnops-upload-url', async (req, res, next) => {
+  try {
+    const rawUrl = String(req.query.url ?? '');
+    if (!rawUrl.trim()) {
+      res.status(400).json({ error: 'url query parameter is required' });
+      return;
+    }
+
+    const uploadUrl = await resolveCdnOpsUploadUrl(rawUrl, config.cdnBaseUrl);
+    if (!uploadUrl) {
+      res.status(400).json({ error: 'Could not derive CDN Ops upload path' });
+      return;
+    }
+
+    res.json({ url: uploadUrl });
   } catch (error) {
     next(error);
   }

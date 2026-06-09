@@ -1,5 +1,6 @@
 import { BugRowActions } from './BugControls';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
+import { CdnUploadButton } from './CdnUploadButton';
 import type { BannerRow, CanonicalPlacement, ConfirmedBug } from '../types';
 import { rowStateLabel, rowStateVariant } from '../utils/checklist';
 import { StatusBadge } from './ui/StatusBadge';
@@ -70,6 +71,10 @@ export function ToolACdnTable({
                     <p className="cdn-path">
                       {row.cdnUrl ?? row.cdnLink ?? '—'}
                     </p>
+                    <CdnUploadButton
+                      cdnUrl={row.cdnUrl}
+                      cdnLink={row.cdnLink}
+                    />
                   </td>
                   <td className="text-2xs tabular-nums text-ink-secondary">
                     {row.startTime ? (

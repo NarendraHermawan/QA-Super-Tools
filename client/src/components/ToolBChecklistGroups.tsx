@@ -1,5 +1,6 @@
 import { BugRowActions } from './BugControls';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
+import { CdnUploadButton } from './CdnUploadButton';
 import type { BannerRow, ChecklistGroup, ConfirmedBug } from '../types';
 import { groupTitle, isSingleDayBanner } from '../utils/checklist';
 import { StatusBadge } from './ui/StatusBadge';
@@ -82,6 +83,7 @@ function renderRow(
             url={row.cdnUrl}
             onBroken={() => onBroken(row.id)}
           />
+          <CdnUploadButton cdnUrl={row.cdnUrl} cdnLink={row.cdnLink} />
           <BugRowActions
             onConfirm={onConfirmBug}
             rowId={row.id}
