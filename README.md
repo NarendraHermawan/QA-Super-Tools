@@ -9,8 +9,10 @@ Web application for the Free Fire Indonesia LiveOps QA team to automate weekly b
 | 100+ sheet tabs, hard to find current week | Auto-detects latest 4 **sub-weeks** from recent tabs |
 | No single "missing CDN" view | **Tool A** lists all `CDN Uploaded = 0` rows, grouped by placement |
 | No date-aware in-game QA view | **Tool B** shows APPEAR / DISAPPEAR / Still active per day |
-| Manual CDN link verification | Live CDN health check per row (client `<img>` + server HEAD fallback) |
+| Manual CDN link verification | Live CDN health check per row (cached; `.ff_extend` → `.jpg`) |
 | Missed uploads → blank banners | Summary bar highlights urgency (`N missing — M go live today`) |
+| Checklist progress lost on refresh | **Neon PostgreSQL** persists checks and bugs per day |
+| Team access control | Simple **admin login** (username/password session) |
 
 ## Tools
 
@@ -20,6 +22,7 @@ Answers: *"What banners are missing CDN upload for the date or week I'm looking 
 
 - Default view: all rows where `CDN Uploaded = false` for the selected sub-week
 - Date filter bar: each day of the sub-week; filters by active period overlap
+- **Show all** — full-week view for the sub-week
 - Toggle: "Show all (including uploaded)" greys out uploaded rows
 - Grouped by placement: Overview → Shopping Mall → Slide Banner → Gacha → Background/Icon → Event → Esports → Craftland
 - Row states:
@@ -27,21 +30,26 @@ Answers: *"What banners are missing CDN upload for the date or week I'm looking 
   - **Ready to upload** (orange): `Asset Done = 1`, `CDN Uploaded = 0`
   - **Uploaded** (grey, hidden by default)
   - **Inconsistent** (yellow): `Asset Done = 0`, `CDN Uploaded = 1`
-- **Refresh** re-fetches the sheet (cache bust)
+- **CDN health** per row: OK / unreachable / N/A (see [CDN health check](#cdn-health-check-flow))
+- **Confirm as Bug** + **Copy Bug Report** for broken CDN links
+- **Refresh sheet** re-fetches from Google (cache bust)
 
 ### Tool B — In-Game QA Checklist (`/tool-b`)
 
 Answers: *"When I open the game right now, what should I see — and what should be gone?"*
 
-- Day tab bar for each day in the selected sub-week
+- Day tab bar for each day in the selected sub-week (+ **Show all** for full week)
 - Three groups per day:
   - **Should APPEAR today**: `Start Time` date = selected date
   - **Should DISAPPEAR today**: `End Time` date = selected date
   - **Still active**: `Start Time` < selected date < `End Time`
 - Single-day banners appear in both APPEAR and DISAPPEAR with warning: *"Single-day — check morning AND evening"*
-- Per-row checkbox (in-memory; resets on page refresh)
+- Per-row checkbox with **persistent storage** (Neon) keyed by `week + date + row`
+- **Still-active carry-over**: banners checked on a previous day in the same week auto-appear checked on later days
+- **Show all** progress aggregates checks from every day in the week (unique rows checked / total week rows)
 - Progress bar: `X / Y checked`
-- Placement filter persists across day navigation
+- Confirmed CDN bugs persisted per date
+- Placement filter; optional Craftland section
 
 ### Shared entry point (`/`)
 
@@ -49,40 +57,46 @@ Answers: *"When I open the game right now, what should I see — and what should
 
 **Mode 2 — Choose a date:** date-picker auto-detects the covering sub-week; warns if outside the 4-week window
 
+### Admin login (`/login`)
+
+When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + auth) require a signed session cookie after login. Omit `ADMIN_PASSWORD` locally to disable auth during development.
+
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Browser (React SPA via Vite)                               │
-│  - Entry point, Tool A, Tool B                              │
-│  - CDN health: <img> onload/onerror first                     │
-│  - Zustand for session state (checkboxes, bugs)             │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ /api/*
-┌──────────────────────────▼──────────────────────────────────┐
-│  Node.js + Express + TypeScript (server/)                   │
-│  - Google Sheets API (service account, read-only)           │
-│  - Sheet parsing (tab names, sub-weeks, sections, dates)    │
-│  - In-memory TTL cache                                      │
-│  - CDN HEAD proxy (/api/cdn-check)                          │
-└──────────┬───────────────────────────────┬──────────────────┘
-           │                               │
-           ▼                               ▼
-  Google Sheets API v4          dl.dir.freefiremobile.com
-  (master checklist sheet)      (CDN asset host)
+┌─────────────────────────────────────────────────────────────────┐
+│  Browser (React SPA via Vite)                                   │
+│  - Entry point, Tool A, Tool B, Login                           │
+│  - CDN health: <img> + cached server HEAD fallback              │
+│  - Zustand: week/date filters, checklist UI state               │
+└──────────────────────────┬──────────────────────────────────────┘
+                           │ /api/*  (credentials: cookie)
+┌──────────────────────────▼──────────────────────────────────────┐
+│  Node.js + Express + TypeScript (server/)                         │
+│  - Admin session auth (signed cookie, optional)                   │
+│  - Google Sheets API (service account, read-only)                 │
+│  - Sheet parsing (tabs, sub-weeks, sections, dates)              │
+│  - In-memory TTL cache (sheet data + CDN check results)             │
+│  - CDN HEAD proxy (/api/cdn-check)                                │
+│  - Checklist + bug persistence (/api/checklist/*)                 │
+└──────────┬─────────────────────────────┬────────────────────────┘
+           │                             │
+           ▼                             ▼
+  Google Sheets API v4          Neon PostgreSQL (optional)
+  (master checklist sheet)      (checklist_checks, confirmed_bugs)
+           │
+           ▼
+  dl.dir.freefiremobile.com (CDN asset host)
 ```
 
 ### Why a backend (not pure static HTML)
 
-The PRD originally suggested opening `index.html` directly with a service account key in `config.js`. That approach does **not** work in practice:
-
-1. **Google service account auth** requires signing a JWT and exchanging it at `oauth2.googleapis.com/token`. That endpoint does not allow browser CORS requests.
-2. **Private keys must never ship to the client.** A backend holds the service account JSON securely.
-3. **CDN CORS fallback** — if `<img>` cross-origin loads fail, a server-side HEAD request is needed.
-
-The frontend is therefore a thin rendering layer; all parsing and secrets live in the backend.
+1. **Google service account auth** requires JWT exchange at `oauth2.googleapis.com/token` — blocked by browser CORS.
+2. **Private keys must never ship to the client.**
+3. **CDN health fallback** — server-side HEAD when `<img>` fails.
+4. **Shared checklist state** — team progress stored in Neon, not per-browser memory.
 
 ---
 
@@ -92,51 +106,74 @@ The frontend is therefore a thin rendering layer; all parsing and secrets live i
 |---|---|---|
 | Monorepo | npm workspaces | `client/` + `server/` |
 | Frontend | Vite 6, React 18, TypeScript, Tailwind CSS 3 | SPA, routing, UI |
-| State | Zustand | Selected week/date, filters, checkboxes, confirmed bugs |
+| State | Zustand | Week/date filters, checklist UI, auth session |
 | Backend | Node.js, Express 4, TypeScript | API, parsing, auth, CDN proxy |
+| Database | Neon PostgreSQL (`@neondatabase/serverless`) | Checklist + bug persistence |
+| Auth | Signed HTTP-only cookies (`cookie-parser`) | Admin username/password sessions |
 | Dates | Luxon (`Asia/Jakarta`, UTC+7) | All date math in WIB |
 | Sheets | `googleapis` v4 | Read-only service account access |
-| Cache | In-memory TTL (default 5 min) | Avoid re-fetching 137 tabs |
-| Tests | Vitest | Parsing unit tests with real sheet fixtures |
-| Dev | `concurrently` | Runs server :3001 + client :5173 with API proxy |
+| Cache | In-memory TTL | Sheet data (5 min); CDN checks (10 min) |
+| Tests | Vitest (client + server) | Parsing, auth session, checklist repo |
+| Dev | `concurrently` | Server :3001 + client :5173 with API proxy |
+| Deploy | Render (recommended) | Free-tier Node web service; `render.yaml` included |
 
 ### API endpoints
 
+**Public (no login when auth enabled)**
+
 | Method | Path | Description |
 |---|---|---|
-| `GET` | `/api/health` | Health check |
+| `GET` | `/api/health` | Health check (`storage`, `auth` flags) |
+| `GET` | `/api/auth/status` | Auth enabled + session state |
+| `POST` | `/api/auth/login` | Admin login → session cookie |
+| `POST` | `/api/auth/logout` | Clear session |
+
+**Protected (require session when auth enabled)**
+
+| Method | Path | Description |
+|---|---|---|
 | `GET` | `/api/weeks` | Latest 4 sub-weeks |
 | `GET` | `/api/week/:weekId` | Parsed rows for a sub-week, grouped by placement |
 | `GET` | `/api/week-for-date/:date` | Auto-detect sub-week for an ISO date |
-| `POST` | `/api/refresh` | Bust cache and re-fetch sheet |
-| `GET` | `/api/cdn-check?url=` | Server-side HEAD check for CDN URL |
+| `POST` | `/api/refresh` | Bust sheet cache and re-fetch |
+| `GET` | `/api/cdn-check?url=` | Cached server-side HEAD check for CDN URL |
+| `GET` | `/api/checklist/storage` | Storage backend (`neon` or `memory`) |
+| `GET` | `/api/checklist/:weekId` | All checklist checks for a week (`byDate`) |
+| `PUT` | `/api/checklist/:weekId/check` | Toggle one checklist item |
+| `POST` | `/api/checklist/:weekId/check-batch` | Batch mark items checked (carry-over) |
+| `GET` | `/api/checklist/:weekId/bugs?date=` | Confirmed bugs for a date |
+| `POST` | `/api/checklist/:weekId/bugs` | Save a confirmed bug |
 
 ---
 
 ## Repository layout
 
 ```
-QA Super Tool/
-├── package.json          # Root workspace, dev/build scripts
-├── .env.example          # Environment template
-├── .env                  # Local config (gitignored)
-├── credentials/          # Service account JSON (gitignored)
-├── README.md
-├── client/               # React frontend
+QA-Super-Tools/
+├── package.json              # Root workspace, dev/build/test scripts
+├── render.yaml               # Render Blueprint (optional)
+├── .env.example              # Environment template
+├── .env                      # Local config (gitignored)
+├── credentials/              # Service account JSON (gitignored)
+├── client/                   # React frontend
 │   ├── src/
-│   │   ├── pages/        # EntryPoint, ToolA, ToolB
-│   │   ├── components/   # HeaderBar, CdnHealthIndicator, BugControls, filters
-│   │   ├── api/          # Typed fetch wrappers
-│   │   ├── store/        # Zustand app state
-│   │   └── utils/        # Date + checklist helpers
-│   └── vite.config.ts    # Dev proxy → localhost:3001
-└── server/               # Express backend
+│   │   ├── pages/            # EntryPoint, ToolA, ToolB, Login
+│   │   ├── components/       # CdnHealthIndicator, ProtectedRoute, filters, tables
+│   │   ├── api/              # client.ts, checklist.ts, auth.ts
+│   │   ├── store/            # useAppStore, useAuthStore
+│   │   └── utils/            # date, checklist, CDN helpers
+│   └── vite.config.ts        # Dev proxy → localhost:3001
+└── server/                   # Express backend
     ├── src/
-    │   ├── google/       # Sheets client
-    │   ├── parsing/      # Tab/sub-week/section/date/CDN parsers
-    │   ├── services/     # Data orchestration + cache
-    │   ├── routes/       # API routes
-    │   └── fixtures/     # Test fixtures from real sheet structure
+    │   ├── auth/             # Session token create/verify
+    │   ├── db/               # Neon client + checklist repository
+    │   ├── google/           # Sheets client
+    │   ├── middleware/       # requireAuth
+    │   ├── parsing/          # Tab/sub-week/section/date/CDN parsers
+    │   ├── routes/           # api.ts, auth.ts, checklist.ts
+    │   ├── services/         # Data orchestration + sheet cache
+    │   ├── scripts/          # testDb.ts (Neon connection test)
+    │   └── fixtures/         # Test fixtures from real sheet structure
     └── vitest.config.ts
 ```
 
@@ -158,20 +195,46 @@ QA Super Tool/
 2. Share with the service account email (e.g. `ffid-qa@project.iam.gserviceaccount.com`) as **Viewer**
 3. Copy the Sheet ID from the URL: `https://docs.google.com/spreadsheets/d/<SHEET_ID>/edit`
 
-### 3. Configure environment
+### 3. Neon database (checklist persistence)
+
+1. Create a free project at [neon.tech](https://neon.tech)
+2. Copy the **pooled** connection string
+3. Set `DATABASE_URL` in `.env` — tables are created automatically on server start
+
+Without `DATABASE_URL`, checklist state uses in-memory storage (resets on server restart).
+
+### 4. Configure environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env`:
+See [Environment variables reference](#environment-variables-reference) for all options.
+
+**Minimum local `.env`:**
 
 ```env
 SHEET_ID=your_sheet_id_here
 GOOGLE_SERVICE_ACCOUNT_KEY=./credentials/service-account.json
 CDN_BASE_URL=https://dl.dir.freefiremobile.com/common/
-PORT=3001
-CACHE_TTL_MS=300000
+
+# Optional locally — enables login + persistent checklist
+DATABASE_URL=postgresql://...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your-password
+SESSION_SECRET=at-least-32-random-characters
+```
+
+Generate `SESSION_SECRET`:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+Test Neon connection:
+
+```bash
+cd server && npx tsx src/scripts/testDb.ts
 ```
 
 ---
@@ -205,10 +268,6 @@ Overview          | 3 - 9 Jun     ← sub-week block 1
 Overview          | 10 - 16 Jun   ← sub-week block 2
   [header row]
   [data rows...]
-NEW Shopping mall | 3 - 9 Jun
-  ...
-NEW Shopping mall | 10 - 16 Jun
-  ...
 ```
 
 The user-facing "week" is the **sub-block** (col B label), not the whole tab. The API exposes the latest 4 distinct sub-week ranges.
@@ -221,7 +280,7 @@ A section starts when:
 - Col A matches a known section name (via alias map)
 - Col B is a week-range label (e.g. `10 - 16 Jun`)
 
-The **next row** is the column header row. Columns are mapped **by header name** (not fixed letters), because the sheet has extra columns (`Gopos`, `Subgopos`, `QA`, `Tab`, `Asset`, `Notion Link`, `Sort`, etc.).
+The **next row** is the column header row. Columns are mapped **by header name** (not fixed letters).
 
 Data rows follow until the next section header.
 
@@ -238,21 +297,6 @@ Data rows follow until the next section header.
 | Esports | `Esports` |
 | Craftland | `CRAFTLAND` |
 
-### Row fields
-
-| Field | Source | Notes |
-|---|---|---|
-| `Nama tab` | Col by header | Empty for Gacha sub-assets → fall back to CDN filename |
-| `CDN Link` | Col by header | May be absolute URL, relative path, `embed`, or category label |
-| `Start Time` / `End Time` | Col by header | ISO string **or** Excel serial number |
-| `Asset Done` / `CDN Uploaded` | Col by header | `1`/`0` (not `TRUE`/`FALSE`) |
-
-### Date handling
-
-All dates are interpreted in **WIB (UTC+7, `Asia/Jakarta`)** via Luxon. The tool does not rely on the browser's local timezone for business logic.
-
-Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel epoch (1899-12-30).
-
 ### CDN link normalization
 
 | Input | Result |
@@ -264,22 +308,43 @@ Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel ep
 
 OB version (e.g. `OB53`) lives inside the relative path; the base URL is constant.
 
+### Date handling
+
+All dates are interpreted in **WIB (UTC+7, `Asia/Jakarta`)** via Luxon.
+
+Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel epoch (1899-12-30).
+
 ---
 
 ## CDN health check flow
 
 For every row with a valid CDN URL:
 
-1. **Primary:** client-side `<img>` element with `onload` / `onerror`
-   - Loads OK → green dot
-   - Error → fall back to step 2
-2. **Fallback:** `GET /api/cdn-check?url=...` — server sends HEAD request
-   - 2xx → ok
-   - Otherwise → broken (amber dot)
-3. **No URL** → grey "N/A"
-4. **Checking** → grey spinner (5s timeout → broken)
+1. **Rewrite** `.ff_extend` → `.jpg` for the health check URL (game uses `.ff_extend`; CDN serves `.jpg`)
+2. **Client cache** — skip re-check if result cached in browser (10 min)
+3. **Primary:** client-side `<img>` `onload` / `onerror`
+4. **Fallback:** `GET /api/cdn-check?url=...` — server cached HEAD request
+5. **No URL** → grey "N/A"
+6. **Timeout** → 5s → broken
+
+Re-checks do **not** re-fire on unrelated UI re-renders (stable effect dependencies + caching).
 
 Broken links are **not** auto-reported. User clicks **"Confirm as Bug"** → tally increments → **"Copy Bug Report"** copies plain text for Slack/bug tracker.
+
+---
+
+## Checklist persistence
+
+Stored in Neon when `DATABASE_URL` is set:
+
+| Table | Key | Purpose |
+|---|---|---|
+| `checklist_checks` | `week_id` + `check_date` + `row_id` | Checkbox state per day |
+| `confirmed_bugs` | `week_id` + `check_date` + `row_id` | Confirmed CDN bugs |
+
+**Carry-over:** On day N, rows in **Still active** that were checked on any earlier day in the same week appear pre-checked (saved to day N automatically).
+
+**Show all:** Progress unions all per-day checks across the week vs total unique rows in the week.
 
 ---
 
@@ -288,26 +353,24 @@ Broken links are **not** auto-reported. User clicks **"Confirm as Bug"** → tal
 ### Weekly CDN audit (Tool A)
 
 ```
-User opens / → selects sub-week "10 - 16 Jun 26" → Tool A
+User → /tool-a
   → GET /api/week/:weekId
-  → Server: cache hit/miss → fetch recent tabs from Sheets API
-  → Parse grid → filter sub-week "10 - 16 Jun" rows
-  → Return grouped sections
-  → Client: filter CDN Uploaded = false, group by placement
-  → CDN health check per row
-  → User uploads assets, updates sheet, clicks Refresh
-  → POST /api/refresh → cache bust → re-fetch
+  → Server: sheet cache → Google Sheets API
+  → Parse grid → filter sub-week rows
+  → CDN health check per row (cached)
+  → User clicks Refresh → POST /api/refresh
 ```
 
 ### Daily in-game QA (Tool B)
 
 ```
-User opens / → picks today's date → auto-detect sub-week → Tool B
-  → GET /api/week-for-date/2026-06-10 → matching sub-week
-  → GET /api/week/:weekId → all rows for sub-week
-  → Client: group into APPEAR / DISAPPEAR / Still active for selected day
-  → User checks in-game, ticks checkboxes
-  → Confirms broken CDN links as bugs → Copy Bug Report
+User → /tool-b → pick date
+  → GET /api/checklist/:weekId (load saved checks)
+  → GET /api/week/:weekId
+  → Group APPEAR / DISAPPEAR / Still active
+  → Carry-over still-active from previous days
+  → Toggle checkbox → PUT /api/checklist/:weekId/check
+  → Confirm bug → POST /api/checklist/:weekId/bugs
 ```
 
 ---
@@ -318,13 +381,15 @@ User opens / → picks today's date → auto-detect sub-week → Tool B
 
 - Node.js 18+
 - Google service account with Viewer access to the sheet
+- Neon `DATABASE_URL` (optional but recommended)
+- `ADMIN_PASSWORD` + `SESSION_SECRET` (optional locally; required in production)
 
 ### Run
 
 ```bash
 npm install
 cp .env.example .env
-# Edit .env with your SHEET_ID and service account path
+# Edit .env
 
 npm run dev
 ```
@@ -341,62 +406,55 @@ npm start        # serves API + static client from server
 
 ### Deploy on Render (free tier)
 
-1. Connect the GitHub repo as a **Web Service** (Node).
-2. **Build command** (must install devDependencies for TypeScript/Vite):
+1. Connect the GitHub repo as a **Web Service** (Node), region **Singapore** (near Neon SEA).
+2. **Build command:**
 
 ```bash
 npm install --include=dev && npm run build && mkdir -p credentials && printf '%s' "$GOOGLE_SERVICE_ACCOUNT_JSON" > credentials/service-account.json
 ```
 
 3. **Start command:** `npm start`
-4. Set env vars from `.env.example` plus `GOOGLE_SERVICE_ACCOUNT_JSON` (full JSON body).
-5. Or use the included `render.yaml` Blueprint.
+4. **Required env vars:** `SHEET_ID`, `DATABASE_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_SERVICE_ACCOUNT_KEY=./credentials/service-account.json`, `ADMIN_PASSWORD`, `SESSION_SECRET` (min 32 chars), `NODE_ENV=production`
+5. Or use the included `render.yaml` Blueprint and set secret env vars in the dashboard.
 
 Render sets `NODE_ENV=production` during build, which skips devDependencies by default — `--include=dev` fixes that.
 
-In production, Express serves `client/dist` as static files and falls back to `index.html` for client-side routing.
+**Free tier note:** service sleeps after ~15 min idle; first request after sleep may take 30–60s.
 
 ### Tests
 
 ```bash
-npm test
+npm test    # server + client unit tests
 ```
-
-Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 
 ---
 
-## Assumptions & known limitations (v1.0)
+## Assumptions & known limitations
 
 | Topic | Decision |
 |---|---|
 | CDN base URL | Constant `https://dl.dir.freefiremobile.com/common/`; OB version is in the path |
 | "Latest 4 weeks" | 4 most-recent distinct **sub-week** ranges across recent tabs |
 | Non-week tabs | Ignored (`Patch Note`, `Master Copy`, etc.) |
-| Cross-week carry-over | Tool B shows only the selected sub-week's rows; banners spanning into the next week may not appear on later dates until that sub-week is selected |
-| Craftland | Shown as its own placement; non-URL rows skip CDN health check |
-| Checkbox / bug state | Persisted via Neon when `DATABASE_URL` is set; in-memory fallback otherwise. Still-active items carry over from previous days in the same week |
+| Cross-week carry-over | Tool B shows only the selected sub-week's rows |
+| Craftland | Own placement; non-URL rows skip CDN health check |
+| Checklist storage | Neon when configured; in-memory fallback otherwise |
 | Write-back to sheet | Not supported (read-only) |
-| Authentication | Simple admin username/password when `ADMIN_PASSWORD` is set |
-
-### PRD open questions
-
-1. **CORS on CDN domain** — validated at runtime; server HEAD fallback handles blocks
-2. **CDN base URL per OB patch** — assumed constant; configurable via `CDN_BASE_URL`
-3. **Biweekly tabs in 4-week window** — biweekly tabs yield 2 sub-weeks each; latest 4 sub-weeks are selected by date
-4. **Sheet sharing with service account** — requires sheet owner to invite service account as Viewer
-5. **Overlapping banners across week tabs** — v1.0 limitation documented above; Phase 2 can merge adjacent cached weeks
+| Authentication | Single shared admin account (no Google Sign-In yet) |
+| Multi-user audit | No per-user tracking on checklist actions yet |
 
 ---
 
 ## Phase 2 roadmap
 
-- ~~Persistent checkbox state (localStorage or database)~~ ✅ Neon PostgreSQL
-- Multi-user sharing via hosted deployment
+- ~~Persistent checklist state~~ ✅ Neon PostgreSQL
+- ~~CDN check result caching~~ ✅ Client + server TTL cache
+- ~~Simple admin auth~~ ✅ Session cookie login
+- Multi-user / per-QA audit trail
+- Google Sign-In or team SSO
 - Write-back to Google Sheets (requires user OAuth)
 - Slack daily digest
 - Mobile-optimised layout
-- Dedicated CDN proxy with result caching
 - Historical week comparison
 - Expanded week range beyond latest 4
 
@@ -407,17 +465,20 @@ Parsing tests use fixtures modeled on the real `3 – 16 Jun 26` tab structure.
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `SHEET_ID` | Yes | — | Google Sheet ID from URL |
-| `GOOGLE_SERVICE_ACCOUNT_KEY` | Yes | — | Path to service account JSON |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | Yes | — | Path to service account JSON file |
+| `GOOGLE_SERVICE_ACCOUNT_JSON` | Deploy | — | Full JSON body (Render build writes to file) |
 | `CDN_BASE_URL` | No | `https://dl.dir.freefiremobile.com/common/` | CDN prefix for relative paths |
-| `PORT` | No | `3001` | Server port |
+| `DATABASE_URL` | No* | — | Neon PostgreSQL connection string |
+| `ADMIN_USERNAME` | No | `admin` | Admin login username |
+| `ADMIN_PASSWORD` | Prod | — | Admin password; enables auth when set |
+| `SESSION_SECRET` | Prod | — | Cookie signing secret (min 32 chars) |
+| `PORT` | No | `3001` | Server port (Render sets automatically) |
 | `CACHE_TTL_MS` | No | `300000` | Sheet data cache TTL (5 min) |
 | `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
-| `DATABASE_URL` | No | — | Neon PostgreSQL connection string for checklist persistence |
-| `ADMIN_USERNAME` | No | `admin` | Admin login username |
-| `ADMIN_PASSWORD` | Prod | — | Admin password; required when `NODE_ENV=production` |
-| `SESSION_SECRET` | Prod | — | Cookie signing secret (min 32 chars); required in production |
-| `NODE_ENV` | No | `development` | `production` enables static file serving |
+| `NODE_ENV` | No | `development` | `production` enables static file serving + requires auth secrets |
+
+\*Required for persistent checklist in production; strongly recommended for team use.
 
 ---
 
-*FFID Weekly Banner QA Tools v1.0 — built for Free Fire Indonesia LiveOps QA*
+*FFID Weekly Banner QA Tools — built for Free Fire Indonesia LiveOps QA*
