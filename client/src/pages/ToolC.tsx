@@ -7,10 +7,12 @@ import {
   saveSplashUploadOverride,
 } from '../api/splash';
 import { DateFilterBar } from '../components/DateFilterBar';
+import { SplashAssetTypeFilter } from '../components/splash/SplashAssetTypeFilter';
 import { SplashCdnTable } from '../components/splash/SplashCdnTable';
+import { SplashEventSummaryModal } from '../components/splash/SplashEventSummaryModal';
 import { SplashHeaderBar } from '../components/splash/SplashHeaderBar';
 import { useSplashStore } from '../store/useSplashStore';
-import type { SplashRecord } from '../types';
+import type { SplashAssetType, SplashRecord } from '../types';
 import { clearClientCdnCheckCache } from '../utils/cdnCheckCache';
 import { defaultDateForWeek, isWeekViewAll } from '../utils/date';
 import {
@@ -38,9 +40,13 @@ export function ToolC() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [selectedAssetTypes, setSelectedAssetTypes] = useState<SplashAssetType[]>(
+    [],
+  );
   const [brokenRows, setBrokenRows] = useState<Set<string>>(new Set());
   const [cdnHealthRefreshToken, setCdnHealthRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const viewAllWeek = isWeekViewAll(selectedDate);
   const activeDate =
@@ -85,24 +91,33 @@ export function ToolC() {
         viewAllWeek,
         includeUploaded: showAll,
         uploadOverrides,
+        selectedAssetTypes,
       }),
-    [records, activeDate, viewAllWeek, showAll, uploadOverrides],
+    [records, activeDate, viewAllWeek, showAll, uploadOverrides, selectedAssetTypes],
   );
+
+  const toggleAssetType = useCallback((assetType: SplashAssetType) => {
+    setSelectedAssetTypes((prev) =>
+      prev.includes(assetType)
+        ? prev.filter((type) => type !== assetType)
+        : [...prev, assetType],
+    );
+  }, []);
 
   const sections = useMemo(() => {
     const ready: SplashRecord[] = [];
-    const blocked: SplashRecord[] = [];
+    const assetNotReady: SplashRecord[] = [];
     const needsReview: SplashRecord[] = [];
     const uploaded: SplashRecord[] = [];
 
     for (const record of filtered) {
       const section = toolCSectionForRecord(record, uploadOverrides);
       if (section === 'ready') ready.push(record);
-      else if (section === 'blocked') blocked.push(record);
+      else if (section === 'asset_not_ready') assetNotReady.push(record);
       else if (section === 'needs_review') needsReview.push(record);
       else uploaded.push(record);
     }
-    return { ready, blocked, needsReview, uploaded };
+    return { ready, assetNotReady, needsReview, uploaded };
   }, [filtered, uploadOverrides]);
 
   const metrics = useMemo(
@@ -159,23 +174,47 @@ export function ToolC() {
           title="Splash & Anno Upload Checker"
           description="Entries needing upload action for the selected sub-week. Filter by day to see what overlaps that date."
           actions={
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="btn-secondary"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh sheet'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(true)}
+                className="btn-secondary"
+              >
+                Summarize
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="btn-secondary"
+              >
+                {refreshing ? 'Refreshing…' : 'Refresh sheet'}
+              </button>
+            </>
           }
         />
 
+        <SplashEventSummaryModal
+          open={summaryOpen}
+          onClose={() => setSummaryOpen(false)}
+          records={records}
+          uploadOverrides={uploadOverrides}
+          weekLabel={selectedWeek?.label}
+        />
+
         <Toolbar>
-          <ToolbarRow>
+          <ToolbarRow label="Day">
             <DateFilterBar
               days={days}
               selectedDate={selectedDate ?? activeDate}
               onSelect={setSelectedDate}
+            />
+          </ToolbarRow>
+          <ToolbarRow label="Placement">
+            <SplashAssetTypeFilter
+              selected={selectedAssetTypes}
+              onToggle={toggleAssetType}
+              onClear={() => setSelectedAssetTypes([])}
             />
           </ToolbarRow>
           <ToolbarRow>
@@ -192,7 +231,7 @@ export function ToolC() {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Ready to upload" value={metrics.ready} />
-          <StatCard label="Blocked" value={metrics.blocked} />
+          <StatCard label="Asset not ready" value={metrics.assetNotReady} />
           <StatCard label="QA marked uploaded" value={metrics.marked} />
           <StatCard label="Rows shown" value={metrics.shown} />
         </div>
@@ -215,13 +254,14 @@ export function ToolC() {
               onRevertUploaded={(id) => persistOverride(id, false)}
             />
             <SplashCdnTable
-              title="Blocked: Asset Not Ready"
-              rows={sections.blocked}
+              title="Asset Not Ready"
+              rows={sections.assetNotReady}
               uploadOverrides={uploadOverrides}
               brokenRows={brokenRows}
               cdnHealthRefreshToken={cdnHealthRefreshToken}
               onBroken={(id) => setBrokenRows((p) => new Set(p).add(id))}
-              showActions={false}
+              onMarkUploaded={(id) => persistOverride(id, true)}
+              onRevertUploaded={(id) => persistOverride(id, false)}
             />
             <SplashCdnTable
               title="Needs Review"

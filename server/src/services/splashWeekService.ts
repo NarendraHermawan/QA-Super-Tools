@@ -1,4 +1,5 @@
 import { eachDayInRange } from '../parsing/dateUtils.js';
+import { clearCache } from '../cache.js';
 import {
   fetchWeeks,
   findWeekForDate,
@@ -38,7 +39,8 @@ function buildDetailSummary(records: SplashRecord[]): SplashWeekSummary {
       .length,
     scheduled: records.filter((r) => r.status === 'scheduled').length,
     ready: records.filter((r) => r.toolCSection === 'ready').length,
-    blocked: records.filter((r) => r.toolCSection === 'blocked').length,
+    assetNotReady: records.filter((r) => r.toolCSection === 'asset_not_ready')
+      .length,
     needsReview: records.filter((r) => r.toolCSection === 'needs_review').length,
   };
 }
@@ -89,6 +91,7 @@ export async function fetchSplashWeekById(
 
 export async function refreshSplashWeekData(): Promise<WeeksResponse> {
   clearSplashCache();
+  clearCache();
   resetBannerLookupIndexForTests();
   return fetchSplashWeeks();
 }

@@ -167,7 +167,7 @@ function classifyToolCSection(
   if (status === 'done') return 'uploaded';
   if (status === 'scheduled') return scheduledWithoutUrl ? 'needs_review' : 'uploaded';
   if (status === 'trello_done') return 'ready';
-  if (status === 'need_to_update_trello') return 'blocked';
+  if (status === 'need_to_update_trello') return 'asset_not_ready';
   return 'needs_review';
 }
 

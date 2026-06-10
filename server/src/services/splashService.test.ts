@@ -87,8 +87,8 @@ describe('recordOverlapsMonth', () => {
 });
 
 describe('lookupGopos', () => {
-  it('returns suggested when 3+ exact matches agree', () => {
-    const rows = Array.from({ length: 3 }, () =>
+  it('returns suggested when 2+ exact matches agree', () => {
+    const rows = Array.from({ length: 2 }, () =>
       bannerRow('Super Fusion Bundle', '99', 'link-a'),
     );
     const result = lookupGopos('#4 Super Fusion Bundle', rows);
@@ -96,42 +96,31 @@ describe('lookupGopos', () => {
     if (result.status === 'suggested') {
       expect(result.gopos).toBe('99');
       expect(result.subGopos).toBe('link-a');
-      expect(result.matchType).toBe('exact');
+      expect(result.matchCount).toBe(2);
     }
   });
 
-  it('returns conflict when exact matches disagree', () => {
+  it('returns not_found when exact matches disagree', () => {
     const rows = [
       bannerRow('Super Fusion Bundle', '99', 'a'),
-      bannerRow('Super Fusion Bundle', '99', 'a'),
       bannerRow('Super Fusion Bundle', '88', 'b'),
-      bannerRow('Super Fusion Bundle', '88', 'b'),
-    ];
-    const result = lookupGopos('Super Fusion Bundle', rows);
-    expect(result.status).toBe('conflict');
-  });
-
-  it('returns not_found when fewer than 3 matches', () => {
-    const rows = [
-      bannerRow('Super Fusion Bundle', '99', 'a'),
-      bannerRow('Super Fusion Bundle', '99', 'a'),
     ];
     const result = lookupGopos('Super Fusion Bundle', rows);
     expect(result.status).toBe('not_found');
   });
 
-  it('prefers exact match value when exact+fuzzy reach threshold', () => {
+  it('returns not_found when fewer than 2 matches', () => {
+    const rows = [bannerRow('Super Fusion Bundle', '99', 'a')];
+    const result = lookupGopos('Super Fusion Bundle', rows);
+    expect(result.status).toBe('not_found');
+  });
+
+  it('returns not_found for fuzzy-only matches', () => {
     const rows = [
-      bannerRow('Super Fusion Bundle', '77', 'exact'),
       bannerRow('Super Fusion Bundle Extended', '99', 'fuzzy-a'),
       bannerRow('Super Fusion Bundle Promo', '99', 'fuzzy-b'),
-      bannerRow('Another Bundle', '99', 'fuzzy-c'),
     ];
     const result = lookupGopos('Super Fusion Bundle', rows);
-    expect(result.status).toBe('suggested');
-    if (result.status === 'suggested') {
-      expect(result.gopos).toBe('77');
-      expect(result.subGopos).toBe('exact');
-    }
+    expect(result.status).toBe('not_found');
   });
 });

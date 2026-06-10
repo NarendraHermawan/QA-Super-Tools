@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { parseTabNameRange, todayWib, WIB } from './dateUtils.js';
+import { isRelevantSubWeek, parseTabNameRange, todayWib, WIB } from './dateUtils.js';
 import type { ParsedTab } from '../types.js';
 
 export function isValidWeekTab(tabName: string): boolean {
@@ -27,7 +27,7 @@ export function getRecentTabs(tabNames: string[], limit = 6): ParsedTab[] {
 export function getTabsNearToday(
   tabNames: string[],
   weeksBefore = 8,
-  weeksAfter = 2,
+  weeksAfter = 4,
   todayIso: string = todayWib(),
 ): ParsedTab[] {
   const today = DateTime.fromISO(todayIso, { zone: WIB });
@@ -42,4 +42,22 @@ export function getTabsNearToday(
         tab.range.end >= windowStart && tab.range.start <= windowEnd,
     )
     .sort((a, b) => b.range.end.localeCompare(a.range.end));
+}
+
+/** Union of near-today tabs and newest relevant week tabs (deduped). */
+export function getTabsToFetch(
+  tabNames: string[],
+  todayIso: string = todayWib(),
+): ParsedTab[] {
+  const nearToday = getTabsNearToday(tabNames, 8, 4, todayIso);
+  const recent = getRecentTabs(tabNames, 12).filter((tab) =>
+    isRelevantSubWeek(tab.range, todayIso),
+  );
+  const byName = new Map<string, ParsedTab>();
+  for (const tab of [...nearToday, ...recent]) {
+    byName.set(tab.name, tab);
+  }
+  return [...byName.values()].sort((a, b) =>
+    b.range.end.localeCompare(a.range.end),
+  );
 }

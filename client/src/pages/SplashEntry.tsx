@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchSplashWeekForDate, fetchSplashWeeks } from '../api/splash';
+import { fetchSplashWeekForDate, fetchSplashWeeks, refreshSplashWeeks } from '../api/splash';
 import { useSplashStore } from '../store/useSplashStore';
 import type { SubWeek } from '../types';
 import { defaultDateForWeek, todayWib } from '../utils/date';
@@ -18,6 +18,7 @@ export function SplashEntry() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dateWarning, setDateWarning] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchSplashWeeks()
@@ -28,6 +29,25 @@ export function SplashEntry() {
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  const handleRefreshWeeks = async () => {
+    setRefreshing(true);
+    setError('');
+    try {
+      const data = await refreshSplashWeeks();
+      setWeeks(data.weeks);
+      setSelectedWeekId((current) => {
+        if (current && data.weeks.some((week) => week.id === current)) {
+          return current;
+        }
+        return data.weeks[0]?.id ?? '';
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to refresh weeks');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const startTool = (tool: 'c' | 'd', week: SubWeek, date?: string) => {
     setSelectedWeek(week);
@@ -82,22 +102,32 @@ export function SplashEntry() {
             </p>
           </div>
           <div className="space-y-4 p-4">
-            <label className="block">
-              <span className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-ink-muted">
-                Sub-week
-              </span>
-              <select
-                value={selectedWeekId}
-                onChange={(e) => setSelectedWeekId(e.target.value)}
-                className="field"
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="block min-w-[12rem] flex-1">
+                <span className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-ink-muted">
+                  Sub-week
+                </span>
+                <select
+                  value={selectedWeekId}
+                  onChange={(e) => setSelectedWeekId(e.target.value)}
+                  className="field"
+                >
+                  {weeks.map((week) => (
+                    <option key={week.id} value={week.id}>
+                      {week.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={handleRefreshWeeks}
+                disabled={refreshing}
+                className="btn-secondary shrink-0"
               >
-                {weeks.map((week) => (
-                  <option key={week.id} value={week.id}>
-                    {week.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {refreshing ? 'Refreshing…' : 'Refresh weeks'}
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

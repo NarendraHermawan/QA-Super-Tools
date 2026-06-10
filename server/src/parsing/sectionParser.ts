@@ -8,6 +8,9 @@ import {
 import {
   parseCellDate,
   parseDateRangeLabel,
+  formatSubWeekLabelFromRange,
+  isSingleWeekTabRange,
+  parseTabNameRange,
   toIsoDateTime,
 } from './dateUtils.js';
 import type {
@@ -35,14 +38,34 @@ function computeRowState(assetDone: boolean, cdnUploaded: boolean): RowState {
   return 'inconsistent';
 }
 
-function isSectionHeaderRow(row: GridRow): boolean {
+function defaultSubWeekLabelForTab(tabName: string): string | null {
+  const tabRange = parseTabNameRange(tabName);
+  if (!tabRange || !isSingleWeekTabRange(tabRange)) return null;
+  return formatSubWeekLabelFromRange(tabRange);
+}
+
+function resolveSectionStart(
+  row: GridRow,
+  tabName: string,
+): { placement: CanonicalPlacement; subWeekLabel: string } | null {
   const colA = String(row[0] ?? '').trim();
   const colB = String(row[1] ?? '').trim();
-  if (!colA || !colB) return false;
-  if (!(colA in SECTION_ALIASES)) return false;
-  return (
-    parseDateRangeLabel(colB) !== null || /\d{1,2}\s*-\s*\d{1,2}/.test(colB)
-  );
+  if (!colA || !(colA in SECTION_ALIASES)) return null;
+
+  if (
+    colB &&
+    (parseDateRangeLabel(colB) !== null || /\d{1,2}\s*-\s*\d{1,2}/.test(colB))
+  ) {
+    return { placement: SECTION_ALIASES[colA], subWeekLabel: colB };
+  }
+
+  const fallbackLabel = defaultSubWeekLabelForTab(tabName);
+  if (!fallbackLabel) return null;
+  return { placement: SECTION_ALIASES[colA], subWeekLabel: fallbackLabel };
+}
+
+function isSectionStartRow(row: GridRow, tabName: string): boolean {
+  return resolveSectionStart(row, tabName) !== null;
 }
 
 function isColumnHeaderRow(row: GridRow): boolean {
@@ -152,14 +175,13 @@ export function parseSheetGrid(
 
   while (i < grid.length) {
     const row = grid[i];
-    if (!isSectionHeaderRow(row)) {
+    const section = resolveSectionStart(row, tabName);
+    if (!section) {
       i += 1;
       continue;
     }
 
-    const sectionName = String(row[0]).trim();
-    const subWeekLabel = String(row[1]).trim();
-    const placement = SECTION_ALIASES[sectionName];
+    const { placement, subWeekLabel } = section;
     i += 1;
 
     if (i >= grid.length || !isColumnHeaderRow(grid[i])) {
@@ -170,7 +192,7 @@ export function parseSheetGrid(
     i += 1;
 
     let lastNamaTab = '';
-    while (i < grid.length && !isSectionHeaderRow(grid[i])) {
+    while (i < grid.length && !isSectionStartRow(grid[i], tabName)) {
       const dataRow = grid[i];
       if (!isBlankGridRow(dataRow) && !isColumnHeaderRow(dataRow)) {
         const rawName = String(getCell(dataRow, columns.namaTab) ?? '').trim();

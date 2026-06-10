@@ -21,12 +21,6 @@ function displayValue(
       badge: 'Suggested',
     };
   }
-  if (lookup.status === 'conflict') {
-    return {
-      text: field === 'gopos' ? lookup.gopos : lookup.subGopos,
-      badge: 'Conflict detected',
-    };
-  }
   return { text: '— not found', badge: null };
 }
 
@@ -48,11 +42,6 @@ export function GoposField({ label, sheetValue, lookup, field }: Props) {
         {badge === 'Suggested' && (
           <span className="rounded border border-accent/20 bg-accent-muted px-1.5 py-0.5 text-2xs font-medium text-accent-hover">
             Suggested
-          </span>
-        )}
-        {badge === 'Conflict detected' && (
-          <span className="rounded border border-status-warn/20 bg-status-warnBg px-1.5 py-0.5 text-2xs font-medium text-status-warn">
-            Conflict detected
           </span>
         )}
       </div>

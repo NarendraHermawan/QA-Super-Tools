@@ -51,21 +51,18 @@ export type SplashStatus =
   | 'done'
   | 'unknown';
 
-export type SplashToolCSection = 'ready' | 'blocked' | 'needs_review' | 'uploaded';
+export type SplashToolCSection =
+  | 'ready'
+  | 'asset_not_ready'
+  | 'needs_review'
+  | 'uploaded';
 
 export type GoposLookupResult =
   | {
       status: 'suggested';
       gopos: string;
       subGopos: string;
-      matchType: 'exact' | 'fuzzy';
       matchCount: number;
-    }
-  | {
-      status: 'conflict';
-      gopos: string;
-      subGopos: string;
-      conflictCount: number;
     }
   | { status: 'not_found' };
 
@@ -97,7 +94,7 @@ export interface SplashWeekSummary {
   needToUpdate: number;
   scheduled: number;
   ready: number;
-  blocked: number;
+  assetNotReady: number;
   needsReview: number;
 }
 

@@ -11,8 +11,7 @@ import {
   parseSubWeekInTabContext,
   parseTabNameRange,
 } from './dateUtils.js';
-import { getTabsNearToday } from './tabNameParser.js';
-import { parseTab, getRecentTabs } from './tabNameParser.js';
+import { getTabsNearToday, getTabsToFetch, parseTab, getRecentTabs } from './tabNameParser.js';
 import {
   buildSubWeeksFromTab,
   getLatestSubWeeks,
@@ -37,6 +36,35 @@ describe('dateUtils', () => {
     expect(range).toEqual({ start: '2026-06-10', end: '2026-06-16' });
   });
 
+  it('parses cross-month labels where month token is the end month', () => {
+    expect(parseDateRangeLabel('27 - 2 Jun', 2026)).toEqual({
+      start: '2026-05-27',
+      end: '2026-06-02',
+    });
+    expect(parseDateRangeLabel('29 - 5 Jun', 2026)).toEqual({
+      start: '2026-05-29',
+      end: '2026-06-05',
+    });
+    expect(parseDateRangeLabel('20 - 26 May', 2026)).toEqual({
+      start: '2026-05-20',
+      end: '2026-05-26',
+    });
+    expect(parseDateRangeLabel('17 - 24 Jun', 2026)).toEqual({
+      start: '2026-06-17',
+      end: '2026-06-24',
+    });
+  });
+
+  it('parses biweekly tab names that end in the following month', () => {
+    const range = parseTabNameRange('20 – 2 Jun 26');
+    expect(range).toEqual({ start: '2026-05-20', end: '2026-06-02' });
+  });
+
+  it('parses tab names with Before Patch suffix without parentheses', () => {
+    const range = parseTabNameRange('17 – 24 Jun 26 Before Patch');
+    expect(range).toEqual({ start: '2026-06-17', end: '2026-06-24' });
+  });
+
   it('parses excel serial and ISO dates', () => {
     const iso = parseCellDate('2026-06-03 00:00:00');
     const serial = parseCellDate(46176.416666666664);
@@ -53,7 +81,7 @@ describe('tabNameParser', () => {
       '20 – 2 Jun 26',
       'Master Copy disini',
     ]);
-    expect(tabs.map((t) => t.name)).toEqual(['20 – 2 Jun 26', '3 – 16 Jun 26']);
+    expect(tabs.map((t) => t.name)).toEqual(['3 – 16 Jun 26', '20 – 2 Jun 26']);
   });
 
   it('parses Indonesian month names', () => {
@@ -75,6 +103,82 @@ describe('sectionParser', () => {
     expect(rows.length).toBeGreaterThan(3);
     expect(rows.some((r) => r.rowState === 'asset_not_ready')).toBe(true);
     expect(rows.some((r) => r.displayName === 'LobbyBG.png')).toBe(true);
+  });
+
+  it('parses single-week tabs where section headers omit the date in column B', () => {
+    const tabName = '17 – 24 Jun 26 Before Patch';
+    const grid = [
+      ['Overview'],
+      [
+        'Nama tab',
+        'CDN Link',
+        '',
+        '',
+        '',
+        'Start Time',
+        'End Time',
+        '',
+        '',
+        '',
+        'Asset Done',
+        'CDN Uploaded',
+      ],
+      [
+        'Token Ring Bundle',
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/example/overview.ff_extend',
+        '',
+        '',
+        '',
+        '2026-06-17 00:00:00',
+        '2026-06-23 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        0,
+      ],
+      ['NEW Shopping mall'],
+      [
+        'Nama tab',
+        'CDN Link',
+        '',
+        '',
+        '',
+        'Start Time',
+        'End Time',
+        '',
+        '',
+        '',
+        'Asset Done',
+        'CDN Uploaded',
+      ],
+      [
+        'Mall Banner',
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/example/mallsmall.png',
+        '',
+        '',
+        '',
+        '2026-06-17 00:00:00',
+        '2026-06-23 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        0,
+      ],
+    ];
+
+    const rows = parseSheetGrid(
+      tabName,
+      grid,
+      'https://dl.dir.freefiremobile.com/common/',
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.subWeekLabel === '17 - 24 Jun')).toBe(true);
+
+    const subWeeks = buildSubWeeksFromTab(tabName, grid);
+    const weekData = buildWeekData(subWeeks[0], grid, 'https://dl.dir.freefiremobile.com/common/');
+    expect(weekData.allRows).toHaveLength(2);
   });
 
   it('skips empty section break rows (e.g. blank A35/A36)', () => {
@@ -372,6 +476,82 @@ describe('getLatestSubWeeks', () => {
     expect(weeks).toHaveLength(2);
     expect(weeks.every((w) => w.start.startsWith('2026-06'))).toBe(true);
   });
+
+  it('returns the four most recent Tuesday-cycle sub-weeks', () => {
+    const mayJunTab = '20 – 2 Jun 26';
+    const junTab = '3 – 16 Jun 26';
+    const jun2Tab = '17 – 24 Jun 26';
+
+    const mayJunGrid = [
+      ['Overview', '20 - 26 May'],
+      ['Overview', '27 - 2 Jun'],
+    ];
+    const junGrid = [
+      ['Overview', '3 - 9 Jun'],
+      ['Overview', '10 - 16 Jun'],
+    ];
+    const jun2Grid = [['Overview', '17 - 24 Jun']];
+
+    const weeksBeforeNewTab = getLatestSubWeeks(
+      [
+        { tabName: mayJunTab, grid: mayJunGrid },
+        { tabName: junTab, grid: junGrid },
+      ],
+      4,
+      '2026-06-09',
+    );
+    expect(weeksBeforeNewTab.map((w) => w.start)).toEqual([
+      '2026-06-10',
+      '2026-06-03',
+      '2026-05-27',
+      '2026-05-20',
+    ]);
+
+    const weeksAfterNewTab = getLatestSubWeeks(
+      [
+        { tabName: mayJunTab, grid: mayJunGrid },
+        { tabName: junTab, grid: junGrid },
+        { tabName: jun2Tab, grid: jun2Grid },
+      ],
+      4,
+      '2026-06-17',
+    );
+    expect(weeksAfterNewTab.map((w) => w.start)).toEqual([
+      '2026-06-17',
+      '2026-06-10',
+      '2026-06-03',
+      '2026-05-27',
+    ]);
+  });
+
+  it('derives sub-week from tab name when a new single-week tab has no grid headers yet', () => {
+    const weeks = getLatestSubWeeks(
+      [{ tabName: '17 – 24 Jun 26 Before Patch', grid: [] }],
+      4,
+      '2026-06-10',
+    );
+    expect(weeks).toHaveLength(1);
+    expect(weeks[0].start).toBe('2026-06-17');
+    expect(weeks[0].end).toBe('2026-06-24');
+  });
+
+  it('ignores generic weekly tabs without a year or patch suffix', () => {
+    const weeks = getLatestSubWeeks(
+      [
+        { tabName: '7 - 13 Jun', grid: [['Overview', '7 - 13 Jun']] },
+        {
+          tabName: '3 – 16 Jun 26',
+          grid: [
+            ['Overview', '3 - 9 Jun'],
+            ['Overview', '10 - 16 Jun'],
+          ],
+        },
+      ],
+      4,
+      '2026-06-10',
+    );
+    expect(weeks.map((w) => w.start)).toEqual(['2026-06-10', '2026-06-03']);
+  });
 });
 
 describe('relevance and year inference', () => {
@@ -397,15 +577,33 @@ describe('relevance and year inference', () => {
     expect(
       isRelevantSubWeek({ start: '2026-06-03', end: '2026-06-09' }, today),
     ).toBe(true);
+    expect(
+      isRelevantSubWeek({ start: '2026-06-17', end: '2026-06-24' }, today),
+    ).toBe(true);
+    expect(
+      isRelevantSubWeek({ start: '2026-06-21', end: '2026-06-27' }, today),
+    ).toBe(false);
   });
 
   it('prefers tabs near today over far-future year-end tabs', () => {
     const tabs = getTabsNearToday(
       ['17 Dec – 6 Jan 26', '3 – 16 Jun 26', '29 Nov - 05 Des'],
       8,
-      2,
+      4,
       '2026-06-09',
     );
     expect(tabs.map((t) => t.name)).toEqual(['3 – 16 Jun 26']);
+  });
+
+  it('includes globally newest tabs even when slightly outside the near-today window', () => {
+    const tabs = getTabsToFetch(
+      ['20 – 2 Jun 26', '3 – 16 Jun 26', '17 – 24 Jun 26', '17 Dec – 6 Jan 26'],
+      '2026-06-10',
+    );
+    expect(tabs.map((t) => t.name)).toEqual([
+      '17 – 24 Jun 26',
+      '3 – 16 Jun 26',
+      '20 – 2 Jun 26',
+    ]);
   });
 });

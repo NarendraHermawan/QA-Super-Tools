@@ -9,6 +9,7 @@ import type { SplashRecord } from '../../types';
 import { splashStatusLabel, splashStatusVariant } from '../../utils/splashStatus';
 import {
   effectiveSplashUploaded,
+  canMarkSplashUploaded,
   type SplashUploadOverrides,
 } from '../../utils/splashUploadOverrides';
 
@@ -177,7 +178,7 @@ export function SplashCdnTable({
                         <StatusBadge variant="neutral">N/A</StatusBadge>
                       )}
                       {showActions &&
-                        record.status === 'trello_done' &&
+                        canMarkSplashUploaded(record.status) &&
                         onMarkUploaded &&
                         onRevertUploaded && (
                           <CdnUploadStatusActions

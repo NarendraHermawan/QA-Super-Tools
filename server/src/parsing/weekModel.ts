@@ -1,7 +1,10 @@
 import {
   defaultSelectedDate,
+  formatSubWeekLabelFromRange,
   formatWeekLabel,
   isRelevantSubWeek,
+  isSingleWeekTabRange,
+  normalizeDash,
   parseDateRangeLabel,
   parseSubWeekInTabContext,
   parseTabNameRange,
@@ -30,9 +33,23 @@ export function extractSubWeekLabels(grid: GridRow[]): string[] {
   return [...labels];
 }
 
+function isExplicitSingleWeekTab(tabName: string): boolean {
+  const normalized = normalizeDash(tabName);
+  if (/(before patch|after patch|\blebaran\b)/i.test(normalized)) {
+    return true;
+  }
+  return /\d{2,4}\s*$/.test(
+    normalized.replace(/\s+(before patch|after patch)$/i, '').trim(),
+  );
+}
+
 export function buildSubWeeksFromTab(tabName: string, grid: GridRow[]): SubWeek[] {
   const tabRange = parseTabNameRange(tabName);
   if (!tabRange) return [];
+
+  if (isSingleWeekTabRange(tabRange) && !isExplicitSingleWeekTab(tabName)) {
+    return [];
+  }
 
   const labels = extractSubWeekLabels(grid);
   const subWeeks: SubWeek[] = [];
@@ -47,6 +64,21 @@ export function buildSubWeeksFromTab(tabName: string, grid: GridRow[]): SubWeek[
       tabName,
       start: range.start,
       end: range.end,
+    });
+  }
+
+  if (
+    subWeeks.length === 0 &&
+    isSingleWeekTabRange(tabRange) &&
+    isRelevantSubWeek(tabRange)
+  ) {
+    const label = formatSubWeekLabelFromRange(tabRange);
+    subWeeks.push({
+      id: `${tabName}::${label}`,
+      label: formatWeekLabel(tabRange),
+      tabName,
+      start: tabRange.start,
+      end: tabRange.end,
     });
   }
 

@@ -3,11 +3,11 @@ import type { SplashStatus } from '../types';
 export function splashStatusLabel(status: SplashStatus, raw: string): string {
   switch (status) {
     case 'need_to_update_trello':
-      return 'NEED TO UPDATE TRELLO';
+      return 'Asset not ready';
     case 'trello_done':
-      return 'TRELLO DONE';
+      return 'uploaded';
     case 'scheduled':
-      return 'SCHEDULED';
+      return 'Scheduled';
     case 'done':
       return 'DONE';
     default:

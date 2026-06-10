@@ -1,6 +1,10 @@
-import type { SplashRecord } from '../types';
+import type { SplashRecord, SplashStatus } from '../types';
 
 export type SplashUploadOverrides = Record<string, boolean>;
+
+export function canMarkSplashUploaded(status: SplashStatus): boolean {
+  return status === 'trello_done' || status === 'need_to_update_trello';
+}
 
 export function effectiveSplashUploaded(
   record: SplashRecord,
@@ -17,7 +21,7 @@ export function countSplashMarkedUploaded(
 ): number {
   return records.filter(
     (record) =>
-      overrides[record.id] === true && record.status === 'trello_done',
+      overrides[record.id] === true && canMarkSplashUploaded(record.status),
   ).length;
 }
 

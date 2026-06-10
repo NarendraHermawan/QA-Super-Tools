@@ -1,7 +1,7 @@
 import { config } from '../config.js';
 import { clearCache, getCache, setCache } from '../cache.js';
 import { SheetsClient } from '../google/sheetsClient.js';
-import { getTabsNearToday } from '../parsing/tabNameParser.js';
+import { getTabsToFetch } from '../parsing/tabNameParser.js';
 import { buildWeekData } from '../parsing/sectionParser.js';
 import { eachDayInRange } from '../parsing/dateUtils.js';
 import {
@@ -34,7 +34,7 @@ async function loadCache(): Promise<{
 
   const client = getSheetsClient();
   const allTabNames = await client.listTabNames();
-  const recentTabs = getTabsNearToday(allTabNames);
+  const recentTabs = getTabsToFetch(allTabNames);
   const tabNames = recentTabs.map((tab) => tab.name);
   const grids = await client.getTabsValues(tabNames);
 

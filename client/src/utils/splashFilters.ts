@@ -1,7 +1,8 @@
-import type { SplashRecord } from '../types';
+import type { SplashAssetType, SplashRecord } from '../types';
 import { overlapsDate } from './date';
 import {
   toolCSectionForRecord,
+  canMarkSplashUploaded,
   type SplashUploadOverrides,
 } from './splashUploadOverrides';
 
@@ -19,6 +20,16 @@ export function applySplashDayFilter(
   });
 }
 
+export function applySplashAssetTypeFilter(
+  records: SplashRecord[],
+  selectedAssetTypes: SplashAssetType[],
+): SplashRecord[] {
+  if (selectedAssetTypes.length === 0) return records;
+  return records.filter((record) =>
+    selectedAssetTypes.includes(record.assetType),
+  );
+}
+
 export function applyToolCSplashFilters(
   records: SplashRecord[],
   {
@@ -26,14 +37,17 @@ export function applyToolCSplashFilters(
     viewAllWeek,
     includeUploaded,
     uploadOverrides,
+    selectedAssetTypes = [],
   }: {
     activeDate: string;
     viewAllWeek: boolean;
     includeUploaded: boolean;
     uploadOverrides: SplashUploadOverrides;
+    selectedAssetTypes?: SplashAssetType[];
   },
 ): SplashRecord[] {
   let result = applySplashDayFilter(records, activeDate, viewAllWeek);
+  result = applySplashAssetTypeFilter(result, selectedAssetTypes);
   if (!includeUploaded) {
     result = result.filter(
       (record) =>
@@ -51,15 +65,17 @@ export function countSplashMetrics(
   const ready = weekRecords.filter(
     (r) => toolCSectionForRecord(r, uploadOverrides) === 'ready',
   ).length;
-  const blocked = weekRecords.filter(
-    (r) => toolCSectionForRecord(r, uploadOverrides) === 'blocked',
+  const assetNotReady = weekRecords.filter(
+    (r) =>
+      toolCSectionForRecord(r, uploadOverrides) === 'asset_not_ready',
   ).length;
   const marked = weekRecords.filter(
-    (r) => uploadOverrides[r.id] === true && r.status === 'trello_done',
+    (r) =>
+      uploadOverrides[r.id] === true && canMarkSplashUploaded(r.status),
   ).length;
   return {
     ready,
-    blocked,
+    assetNotReady,
     marked,
     shown: filteredRecords.length,
   };

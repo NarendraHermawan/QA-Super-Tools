@@ -5,39 +5,15 @@ import { StatusBadge } from '../ui/StatusBadge';
 import { GoposField } from './GoposField';
 import { SortIdBadge } from './SortIdBadge';
 import type { SplashRecord } from '../../types';
-import { effectiveSplashUploaded } from '../../utils/splashUploadOverrides';
-import type { SplashUploadOverrides } from '../../utils/splashUploadOverrides';
-
-function statusVariant(
-  status: SplashRecord['status'],
-): 'ok' | 'warn' | 'error' | 'neutral' {
-  switch (status) {
-    case 'scheduled':
-    case 'done':
-      return 'ok';
-    case 'trello_done':
-      return 'warn';
-    case 'need_to_update_trello':
-      return 'error';
-    default:
-      return 'neutral';
-  }
-}
-
-function statusLabel(status: SplashRecord['status'], raw: string): string {
-  switch (status) {
-    case 'need_to_update_trello':
-      return 'NEED TO UPDATE TRELLO';
-    case 'trello_done':
-      return 'TRELLO DONE';
-    case 'scheduled':
-      return 'SCHEDULED';
-    case 'done':
-      return 'DONE';
-    default:
-      return raw || 'Unknown';
-  }
-}
+import {
+  effectiveSplashUploaded,
+  canMarkSplashUploaded,
+  type SplashUploadOverrides,
+} from '../../utils/splashUploadOverrides';
+import {
+  splashStatusLabel,
+  splashStatusVariant,
+} from '../../utils/splashStatus';
 
 function formatWindow(start: string | null, end: string | null): string {
   if (!start && !end) return '—';
@@ -122,8 +98,8 @@ export function SplashAssetRow({
         </div>
       </td>
       <td className="px-3 py-3">
-        <StatusBadge variant={statusVariant(record.status)}>
-          {statusLabel(record.status, record.statusRaw)}
+        <StatusBadge variant={splashStatusVariant(record.status)}>
+          {splashStatusLabel(record.status, record.statusRaw)}
         </StatusBadge>
       </td>
       <td className="px-3 py-3">
@@ -156,7 +132,9 @@ export function SplashAssetRow({
         )}
       </td>
       <td className="px-3 py-3">
-        {record.status === 'trello_done' && onMarkUploaded && onRevertUploaded && (
+        {canMarkSplashUploaded(record.status) &&
+          onMarkUploaded &&
+          onRevertUploaded && (
           <CdnUploadStatusActions
             effectiveUploaded={uploaded}
             onMarkUploaded={onMarkUploaded}

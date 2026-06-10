@@ -23,42 +23,9 @@ import type {
   SplashRecord,
 } from '../types.js';
 
-function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  if (!a.length) return b.length;
-  if (!b.length) return a.length;
-
-  const matrix: number[][] = [];
-  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      const cost = b[i - 1] === a[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1,
-        matrix[i][j - 1] + 1,
-        matrix[i - 1][j - 1] + cost,
-      );
-    }
-  }
-  return matrix[b.length][a.length];
-}
-
-function matchScore(splashName: string, bannerName: string): number {
-  const a = splashName.trim().toLowerCase();
-  const b = bannerName.trim().toLowerCase();
-  if (!a || !b) return 0;
-  if (a === b) return 2;
-  if (a.includes(b) || b.includes(a)) return 1;
-  if (levenshtein(a, b) <= 2) return 1;
-  return 0;
-}
-
 interface BannerCandidate {
   gopos: string;
   subGopos: string;
-  score: number;
 }
 
 function bannerEventName(row: BannerRow): string {
@@ -69,79 +36,49 @@ function pairKey(gopos: string, subGopos: string): string {
   return `${gopos}::${subGopos}`;
 }
 
-function majorityPair(
-  items: BannerCandidate[],
-): { gopos: string; subGopos: string; count: number } | null {
-  const counts = new Map<string, { gopos: string; subGopos: string; count: number }>();
-  for (const item of items) {
-    const key = pairKey(item.gopos, item.subGopos);
-    const existing = counts.get(key);
-    if (existing) existing.count += 1;
-    else counts.set(key, { gopos: item.gopos, subGopos: item.subGopos, count: 1 });
-  }
-  let best: { gopos: string; subGopos: string; count: number } | null = null;
-  for (const entry of counts.values()) {
-    if (!best || entry.count > best.count) best = entry;
-  }
-  return best;
-}
-
 function allAgree(items: BannerCandidate[]): boolean {
   if (items.length === 0) return false;
   const first = pairKey(items[0].gopos, items[0].subGopos);
   return items.every((item) => pairKey(item.gopos, item.subGopos) === first);
 }
 
-function toCandidate(row: BannerRow, score: number): BannerCandidate | null {
+function toCandidate(row: BannerRow): BannerCandidate | null {
   const gopos = row.gopos ?? '';
   const subGopos = row.subGopos ?? '';
   if (!gopos && !subGopos) return null;
-  return { gopos, subGopos, score };
+  return { gopos, subGopos };
 }
 
 export class BannerLookupIndex {
   private exactByName = new Map<string, BannerCandidate[]>();
-  private fuzzySources: { name: string; row: BannerRow }[] = [];
 
   constructor(bannerRows: BannerRow[]) {
     for (const row of bannerRows) {
       const name = bannerEventName(row).trim().toLowerCase();
       if (!name) continue;
-      const exact = toCandidate(row, 2);
-      if (exact) {
-        const list = this.exactByName.get(name) ?? [];
-        list.push(exact);
-        this.exactByName.set(name, list);
-      }
-      this.fuzzySources.push({ name, row });
+      const candidate = toCandidate(row);
+      if (!candidate) continue;
+      const list = this.exactByName.get(name) ?? [];
+      list.push(candidate);
+      this.exactByName.set(name, list);
     }
-  }
-
-  exactFor(normalized: string): BannerCandidate[] {
-    return this.exactByName.get(normalized) ?? [];
-  }
-
-  fuzzyFor(normalized: string): BannerCandidate[] {
-    const candidates: BannerCandidate[] = [];
-    for (const { name, row } of this.fuzzySources) {
-      if (name === normalized) continue;
-      if (matchScore(normalized, name) !== 1) continue;
-      const candidate = toCandidate(row, 1);
-      if (candidate) candidates.push(candidate);
-    }
-    return candidates;
   }
 
   lookup(splashDesc: string): GoposLookupResult {
     const normalized = normalizeDescForLookup(splashDesc);
     if (!normalized) return { status: 'not_found' };
 
-    const exactMatches = this.exactFor(normalized);
-    const fuzzyMatches = this.fuzzyFor(normalized);
-    if (exactMatches.length === 0 && fuzzyMatches.length === 0) {
+    const matches = this.exactByName.get(normalized) ?? [];
+    if (matches.length < 2 || !allAgree(matches)) {
       return { status: 'not_found' };
     }
-    return resolveGoposCandidates(exactMatches, fuzzyMatches);
+
+    return {
+      status: 'suggested',
+      gopos: matches[0].gopos,
+      subGopos: matches[0].subGopos,
+      matchCount: matches.length,
+    };
   }
 }
 
@@ -150,65 +87,6 @@ export function lookupGopos(
   bannerRows: BannerRow[],
 ): GoposLookupResult {
   return new BannerLookupIndex(bannerRows).lookup(splashDesc);
-}
-
-function resolveGoposCandidates(
-  exactMatches: BannerCandidate[],
-  fuzzyMatches: BannerCandidate[],
-): GoposLookupResult {
-  const total = exactMatches.length + fuzzyMatches.length;
-  if (total === 0) return { status: 'not_found' };
-
-  if (total < 3) return { status: 'not_found' };
-
-  if (exactMatches.length >= 3) {
-    if (allAgree(exactMatches)) {
-      return {
-        status: 'suggested',
-        gopos: exactMatches[0].gopos,
-        subGopos: exactMatches[0].subGopos,
-        matchType: 'exact',
-        matchCount: exactMatches.length,
-      };
-    }
-    const majority = majorityPair(exactMatches);
-    if (majority) {
-      return {
-        status: 'conflict',
-        gopos: majority.gopos,
-        subGopos: majority.subGopos,
-        conflictCount: majority.count,
-      };
-    }
-  }
-
-  if (exactMatches.length >= 1 && total >= 3) {
-    const majorityExact = majorityPair(exactMatches);
-    if (majorityExact) {
-      return {
-        status: 'suggested',
-        gopos: majorityExact.gopos,
-        subGopos: majorityExact.subGopos,
-        matchType: 'exact',
-        matchCount: exactMatches.length,
-      };
-    }
-  }
-
-  if (exactMatches.length === 0 && fuzzyMatches.length >= 3) {
-    if (allAgree(fuzzyMatches)) {
-      return {
-        status: 'suggested',
-        gopos: fuzzyMatches[0].gopos,
-        subGopos: fuzzyMatches[0].subGopos,
-        matchType: 'fuzzy',
-        matchCount: fuzzyMatches.length,
-      };
-    }
-    return { status: 'not_found' };
-  }
-
-  return { status: 'not_found' };
 }
 
 export function enrichWithGopos(
@@ -425,7 +303,8 @@ function buildDetailSummary(records: SplashRecord[]) {
   return {
     ...base,
     ready: records.filter((r) => r.toolCSection === 'ready').length,
-    blocked: records.filter((r) => r.toolCSection === 'blocked').length,
+    assetNotReady: records.filter((r) => r.toolCSection === 'asset_not_ready')
+      .length,
     needsReview: records.filter((r) => r.toolCSection === 'needs_review').length,
   };
 }

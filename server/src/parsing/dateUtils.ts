@@ -91,16 +91,20 @@ export function parseDateRangeLabel(
   let end = DateTime.fromObject({ year, month, day: endDay }, { zone: WIB });
 
   if (startDay > endDay) {
-    let endYear = year;
-    let endMonth = month + 1;
-    if (endMonth > 12) {
-      endMonth = 1;
-      endYear = year + 1;
+    // Month token is the end month (e.g. "27 - 2 Jun" → 27 May – 2 Jun).
+    let startYear = year;
+    let startMonth = month - 1;
+    if (startMonth < 1) {
+      startMonth = 12;
+      startYear = year - 1;
     }
-    end = DateTime.fromObject(
-      { year: endYear, month: endMonth, day: endDay },
+    const crossStart = DateTime.fromObject(
+      { year: startYear, month: startMonth, day: startDay },
       { zone: WIB },
     );
+    end = DateTime.fromObject({ year, month, day: endDay }, { zone: WIB });
+    if (!crossStart.isValid || !end.isValid) return null;
+    return { start: toIsoDate(crossStart), end: toIsoDate(end) };
   }
 
   if (!start.isValid || !end.isValid) return null;
@@ -117,6 +121,7 @@ export function parseTabNameRange(tabName: string): DateRange | null {
   cleaned = cleaned
     .replace(/^(biweekly|weekly|ex weekly)\s+/i, '')
     .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+(before patch|after patch|lebaran)\s*$/i, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -239,6 +244,27 @@ export function formatWeekLabel(range: DateRange): string {
   return `${startMonth} - ${endPart}`;
 }
 
+/** Grid-style sub-week label (no year), e.g. "17 - 24 Jun". */
+export function formatSubWeekLabelFromRange(range: DateRange): string {
+  const start = DateTime.fromISO(range.start, { zone: WIB });
+  const end = DateTime.fromISO(range.end, { zone: WIB });
+  if (start.month === end.month) {
+    return `${start.toFormat('d')} - ${end.toFormat('d MMM')}`;
+  }
+  return `${start.toFormat('d MMM')} - ${end.toFormat('d MMM')}`;
+}
+
+export function tabRangeDaySpan(range: DateRange): number {
+  const start = DateTime.fromISO(range.start, { zone: WIB });
+  const end = DateTime.fromISO(range.end, { zone: WIB });
+  return end.diff(start, 'days').days;
+}
+
+/** One sub-week tab (≤7 days), not a biweekly container tab. */
+export function isSingleWeekTabRange(range: DateRange): boolean {
+  return tabRangeDaySpan(range) <= 7;
+}
+
 export function todayWib(): string {
   return DateTime.now().setZone(WIB).toISODate()!;
 }
@@ -272,7 +298,8 @@ export function isRelevantSubWeek(
   const weekStart = DateTime.fromISO(range.start, { zone: WIB });
   const weekEnd = DateTime.fromISO(range.end, { zone: WIB });
   const oldestAllowed = today.minus({ weeks: 3 }).startOf('day');
-  const newestAllowed = today.plus({ weeks: 2 }).endOf('day');
+  // Allow the next sub-week sheet (~1 week ahead) but not far-future placeholders.
+  const newestAllowed = today.plus({ days: 8 }).endOf('day');
 
   return weekEnd >= oldestAllowed && weekStart <= newestAllowed;
 }
