@@ -2,10 +2,15 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
 const NAV = [
-  { path: '/', label: 'Home' },
-  { path: '/tool-a', label: 'CDN Checker' },
-  { path: '/tool-b', label: 'QA Checklist' },
+  { path: '/banner', label: 'Banner', match: ['/banner', '/tool-a', '/tool-b'] },
+  { path: '/splash', label: 'Splash', match: ['/splash', '/tool-c', '/tool-d'] },
 ] as const;
+
+function isActive(pathname: string, prefixes: readonly string[]): boolean {
+  return prefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -19,14 +24,11 @@ export function AppLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-6">
             <Link to="/" className="text-sm font-semibold tracking-tight text-ink">
-              FFID Banner QA
+              FFID LiveOps QA
             </Link>
-            <nav className="hidden items-center gap-1 sm:flex">
+            <nav className="flex items-center gap-1">
               {NAV.map((item) => {
-                const active =
-                  item.path === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.path);
+                const active = isActive(pathname, item.match);
                 return (
                   <Link
                     key={item.path}
@@ -58,9 +60,6 @@ export function AppLayout() {
                 Sign out
               </button>
             )}
-            <p className="hidden text-2xs text-ink-muted lg:block">
-              LiveOps weekly banner operations
-            </p>
           </div>
         </div>
       </header>

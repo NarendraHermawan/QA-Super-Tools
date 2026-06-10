@@ -1,6 +1,6 @@
-# FFID Weekly Banner QA Tools
+# FFID LiveOps QA Tools
 
-Web application for the Free Fire Indonesia LiveOps QA team to automate weekly banner CDN upload checks and in-game QA checklists. The tool reads directly from the master Google Sheet (`[FFID] Weekly CDN Checklist`) and surfaces what needs CDN upload, what should appear/disappear in-game each day, and whether CDN links resolve.
+Web application for the Free Fire Indonesia LiveOps QA team to automate weekly **banner** and **Splash & Anno** CDN upload checks and in-game QA checklists. The tool reads from the master Google Sheet (`[FFID] Weekly CDN Checklist`) and, optionally, the Splash workbook (`ID - Settings` tab). It surfaces what needs CDN upload, what should appear/disappear in-game each day, and whether CDN links resolve.
 
 ## What this solves
 
@@ -11,8 +11,13 @@ Web application for the Free Fire Indonesia LiveOps QA team to automate weekly b
 | No date-aware in-game QA view | **Tool B** shows APPEAR / DISAPPEAR / Still active per day |
 | Manual CDN link verification | Live CDN health check per row (cached; `.ff_extend` → `.jpg`) |
 | Missed uploads → blank banners | Summary bar highlights urgency (`N missing — M go live today`) |
-| Checklist progress lost on refresh | **Neon PostgreSQL** persists checks and bugs per day |
+| Hard to see unique events in a long missing list | **Summarize** modal — unique event names with asset tags, copy-friendly report |
+| Sheet `CDN Uploaded` lags behind real uploads | **Mark as uploaded** QA overrides (persisted per week in Neon) |
+| Same event name on multiple CDN assets (merged cells) | **Asset tags** (Mall small, Lobby BG, etc.) derived from CDN filename |
+| Checklist progress lost on refresh | **Neon PostgreSQL** persists checks and upload overrides per week |
 | Team access control | Simple **admin login** (username/password session) |
+| Splash/Anno tracked in a separate workbook | **Tool C / D** — same sub-week UX as Banner; reads `ID - Settings` (`SPLASH_SHEET_ID`) |
+| Splash CDN in cols O/Q dropped by sparse sheet rows | Dedicated **O + Q column fetch** merged into each row (Google trims trailing empties in `B:Z`) |
 
 ## Tools
 
@@ -30,9 +35,13 @@ Answers: *"What banners are missing CDN upload for the date or week I'm looking 
   - **Ready to upload** (orange): `Asset Done = 1`, `CDN Uploaded = 0`
   - **Uploaded** (grey, hidden by default)
   - **Inconsistent** (yellow): `Asset Done = 0`, `CDN Uploaded = 1`
-- **CDN health** per row: OK / unreachable / N/A (see [CDN health check](#cdn-health-check-flow))
-- **Confirm as Bug** + **Copy Bug Report** for broken CDN links
-- **Refresh sheet** re-fetches from Google (cache bust)
+- **Asset tags** under event names when one sheet name maps to multiple CDN files (merged cells)
+- **CDN health** per row: spinner while checking → OK / unreachable / N/A (see [CDN health check](#cdn-health-check-flow))
+- **Open CDN upload** — opens the event folder on `cdnops.jingle.cn` (built client-side from CDN path)
+- **Mark as uploaded** / **Revert to unuploaded** — QA overrides on top of sheet `CDN Uploaded` (persisted; see [QA upload overrides](#qa-upload-overrides))
+- **Summarize** — modal listing **unique event names** for the full sub-week; filter **Not uploaded** (default) or **Uploaded**; optional **Include Craftland**; **Copy list** as formatted report (see [Summarize](#summarize-unique-events))
+- **Refresh sheet** — re-fetches Google Sheet, clears CDN health caches, and re-runs all health checks
+- Stat cards: missing CDN, go-live count, **QA marked uploaded**, rows shown
 
 ### Tool B — In-Game QA Checklist (`/tool-b`)
 
@@ -48,14 +57,45 @@ Answers: *"When I open the game right now, what should I see — and what should
 - **Still-active carry-over**: banners checked on a previous day in the same week auto-appear checked on later days
 - **Show all** progress aggregates checks from every day in the week (unique rows checked / total week rows)
 - Progress bar: `X / Y checked`
-- Confirmed CDN bugs persisted per date
+- **Asset tags** on rows that share an event name (same as Tool A)
+- **Open CDN upload** per row
 - Placement filter; optional Craftland section
 
-### Shared entry point (`/`)
+### Tool C — Splash & Anno Upload Checker (`/tool-c`)
 
-**Mode 1 — Choose a week:** dropdown of latest 4 sub-weeks (most recent first)
+Answers: *"What Splash and Anno entries this sub-week still need action before they go live?"*
 
-**Mode 2 — Choose a date:** date-picker auto-detects the covering sub-week; warns if outside the 4-week window
+- Reads from **`ID - Settings`** in a separate workbook (`SPLASH_SHEET_ID`)
+- **Same sub-week scope as Banner tools** (latest 4 weeks from the CDN checklist, e.g. `10–16 Jun`)
+- Week + day filter from `/splash` entry point; overlapping entries stay visible when you pick a day
+- Table columns: **Event** (name + Splash/Anno tag), **Status**, **CDN path** (col **O** = Anno, col **Q** = Splash), **GoPos / Sub GoPos**, **Active period**, **CDN health**
+- Sections: **Ready to upload** (`TRELLO DONE`), **Blocked** (`NEED TO UPDATE TRELLO`), **Needs review** (unknown / `SCHEDULED` without URL)
+- **Show all** reveals uploaded `SCHEDULED` / `DONE` rows (greyed out) — `SCHEDULED` rows with a CDN URL are treated as uploaded and hidden by default
+- **GoPos autofill** — cross-sheet lookup from latest 4 banner weeks (read-only suggestions)
+- **Open CDN upload**, **Mark as uploaded** overrides (`splash_upload_overrides` in Neon)
+- **Refresh sheet** re-fetches splash data and clears CDN health cache
+
+### Tool D — Splash & Anno In-Game QA (`/tool-d`)
+
+Answers: *"What Splash and Anno banners should appear, disappear, or stay active today — in Sort_ID order?"*
+
+- **Splash** / **Anno** tabs — one sheet row can produce two records; **Splash** CDN comes from col **Q**, **Anno** from col **O**
+- APPEAR / DISAPPEAR / Still active groups per day (same overlap logic as Tool B)
+- Sort_ID ordering within simultaneously-active cohort; duplicate Sort_ID warning
+- WIB clock + “goes live soon” flags; GoPos display with sheet / Suggested / Not found
+- Checklist persistence in `splash_checks` (Neon) with still-active carry-over
+
+### Landing & entry points
+
+| Route | Purpose |
+|---|---|
+| `/` | Tool selector — Banner QA vs Splash & Anno QA |
+| `/banner` | Banner scope — week or date, then Tool A / B |
+| `/splash` | Splash scope — same sub-week picker as Banner, then Tool C / D |
+
+**Banner (`/banner`)** and **Splash (`/splash`)** both use the same sub-week list (e.g. `20–26 May`, `27 May–02 Jun`, `3–9 Jun`, `10–16 Jun`) plus optional date-picker.
+
+`SPLASH_SHEET_ID` is **optional** — if unset, splash API returns `503` and banner tools are unaffected.
 
 ### Admin login (`/login`)
 
@@ -68,24 +108,28 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  Browser (React SPA via Vite)                                   │
-│  - Entry point, Tool A, Tool B, Login                           │
+│  - Tool selector, Banner (/banner) + Splash (/splash) entry    │
+│  - Tool A/B (banner), Tool C/D (splash & anno), Login           │
 │  - CDN health: <img> + cached server HEAD fallback              │
-│  - Zustand: week/date filters, checklist UI state               │
+│  - Summarize modal, CDN Ops upload links, upload overrides UI   │
+│  - Zustand: week/date filters, checklist + override state       │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ /api/*  (credentials: cookie)
 ┌──────────────────────────▼──────────────────────────────────────┐
 │  Node.js + Express + TypeScript (server/)                         │
 │  - Admin session auth (signed cookie, optional)                   │
 │  - Google Sheets API (service account, read-only)                 │
-│  - Sheet parsing (tabs, sub-weeks, sections, dates)              │
-│  - In-memory TTL cache (sheet data + CDN check results)             │
+│  - Banner parsing (tabs, sub-weeks, sections, dates)              │
+│  - Splash parsing (ID - Settings, B:Z + O/Q CDN columns)        │
+│  - In-memory TTL cache (banner + splash sheet + CDN checks)       │
 │  - CDN HEAD proxy (/api/cdn-check)                                │
-│  - Checklist + bug persistence (/api/checklist/*)                 │
+│  - Checklist + overrides (/api/checklist/*, /api/splash/*)        │
 └──────────┬─────────────────────────────┬────────────────────────┘
            │                             │
            ▼                             ▼
   Google Sheets API v4          Neon PostgreSQL (optional)
-  (master checklist sheet)      (checklist_checks, confirmed_bugs)
+  - [FFID] Weekly CDN Checklist (checklist_checks, cdn_upload_overrides)
+  - Splash workbook / ID - Settings (splash_checks, splash_upload_overrides)
            │
            ▼
   dl.dir.freefiremobile.com (CDN asset host)
@@ -108,12 +152,12 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 | Frontend | Vite 6, React 18, TypeScript, Tailwind CSS 3 | SPA, routing, UI |
 | State | Zustand | Week/date filters, checklist UI, auth session |
 | Backend | Node.js, Express 4, TypeScript | API, parsing, auth, CDN proxy |
-| Database | Neon PostgreSQL (`@neondatabase/serverless`) | Checklist + bug persistence |
+| Database | Neon PostgreSQL (`@neondatabase/serverless`) | Checklist + QA upload overrides |
 | Auth | Signed HTTP-only cookies (`cookie-parser`) | Admin username/password sessions |
 | Dates | Luxon (`Asia/Jakarta`, UTC+7) | All date math in WIB |
 | Sheets | `googleapis` v4 | Read-only service account access |
 | Cache | In-memory TTL | Sheet data (5 min); CDN checks (10 min) |
-| Tests | Vitest (client + server) | Parsing, auth session, checklist repo |
+| Tests | Vitest (client + server) | Parsing, event summary, auth session, checklist + override repos |
 | Dev | `concurrently` | Server :3001 + client :5173 with API proxy |
 | Deploy | Render (recommended) | Free-tier Node web service; `render.yaml` included |
 
@@ -135,14 +179,31 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 | `GET` | `/api/weeks` | Latest 4 sub-weeks |
 | `GET` | `/api/week/:weekId` | Parsed rows for a sub-week, grouped by placement |
 | `GET` | `/api/week-for-date/:date` | Auto-detect sub-week for an ISO date |
-| `POST` | `/api/refresh` | Bust sheet cache and re-fetch |
+| `POST` | `/api/refresh` | Bust sheet cache, clear CDN check cache, re-fetch |
 | `GET` | `/api/cdn-check?url=` | Cached server-side HEAD check for CDN URL |
+| `GET` | `/api/cdnops-upload-url?url=` | Derive CDN Ops upload folder URL (sync; client also builds locally) |
 | `GET` | `/api/checklist/storage` | Storage backend (`neon` or `memory`) |
 | `GET` | `/api/checklist/:weekId` | All checklist checks for a week (`byDate`) |
 | `PUT` | `/api/checklist/:weekId/check` | Toggle one checklist item |
 | `POST` | `/api/checklist/:weekId/check-batch` | Batch mark items checked (carry-over) |
-| `GET` | `/api/checklist/:weekId/bugs?date=` | Confirmed bugs for a date |
-| `POST` | `/api/checklist/:weekId/bugs` | Save a confirmed bug |
+| `GET` | `/api/checklist/:weekId/upload-overrides` | QA upload overrides for a week |
+| `PUT` | `/api/checklist/:weekId/upload-overrides` | Set `{ rowId, uploaded }` override |
+| `GET` | `/api/checklist/:weekId/bugs?date=` | Confirmed bugs for a date (legacy API; UI removed) |
+| `POST` | `/api/checklist/:weekId/bugs` | Save a confirmed bug (legacy API; UI removed) |
+
+**Splash & Anno** (`SPLASH_SHEET_ID` required; returns `503` when unset)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/splash/weeks` | Same latest 4 sub-weeks as banner (from CDN checklist) |
+| `GET` | `/api/splash/week/:weekId` | Splash/Anno records overlapping sub-week; optional `?date=` day filter |
+| `GET` | `/api/splash/week-for-date/:date` | Resolve sub-week for an ISO date |
+| `POST` | `/api/splash/refresh` | Bust splash sheet cache |
+| `GET` | `/api/splash/upload-overrides/:weekId` | Tool C QA upload overrides |
+| `PUT` | `/api/splash/upload-overrides/:weekId` | Set `{ rowId, uploaded }` override |
+| `GET` | `/api/splash/checklist/:weekId` | Tool D checklist state (`byDate`) |
+| `PUT` | `/api/splash/checklist/:weekId/check` | Toggle one checklist item |
+| `POST` | `/api/splash/checklist/:weekId/check-batch` | Batch mark items checked (carry-over) |
 
 ---
 
@@ -157,22 +218,23 @@ QA-Super-Tools/
 ├── credentials/              # Service account JSON (gitignored)
 ├── client/                   # React frontend
 │   ├── src/
-│   │   ├── pages/            # EntryPoint, ToolA, ToolB, Login
-│   │   ├── components/       # CdnHealthIndicator, ProtectedRoute, filters, tables
-│   │   ├── api/              # client.ts, checklist.ts, auth.ts
-│   │   ├── store/            # useAppStore, useAuthStore
-│   │   └── utils/            # date, checklist, CDN helpers
+│   │   ├── pages/            # ToolSelector, EntryPoint, SplashEntry, ToolA–D, Login
+│   │   ├── components/       # Banner + splash tables, filters, CDN health
+│   │   │   └── splash/       # SplashCdnTable, GoposField, AssetTypeTabs, etc.
+│   │   ├── api/              # client.ts, checklist.ts, splash.ts, auth.ts
+│   │   ├── store/            # useAppStore, useSplashStore, useAuthStore
+│   │   └── utils/            # splashFilters, splashChecklist, uploadOverrides, date
 │   └── vite.config.ts        # Dev proxy → localhost:3001
 └── server/                   # Express backend
     ├── src/
     │   ├── auth/             # Session token create/verify
-    │   ├── db/               # Neon client + checklist repository
-    │   ├── google/           # Sheets client
+    │   ├── db/               # Neon client, checklist + splash repos
+    │   ├── google/           # Sheets client, splashSheetsClient (B:Z + O/Q)
     │   ├── middleware/       # requireAuth
-    │   ├── parsing/          # Tab/sub-week/section/date/CDN parsers
-    │   ├── routes/           # api.ts, auth.ts, checklist.ts
-    │   ├── services/         # Data orchestration + sheet cache
-    │   ├── scripts/          # testDb.ts (Neon connection test)
+    │   ├── parsing/          # Banner + splashParser (header-based columns)
+    │   ├── routes/           # api.ts, splashApi.ts, auth.ts, checklist.ts
+    │   ├── services/         # dataService, splashService, splashWeekService
+    │   ├── scripts/          # testDb.ts, migrateSplash.ts
     │   └── fixtures/         # Test fixtures from real sheet structure
     └── vitest.config.ts
 ```
@@ -199,9 +261,20 @@ QA-Super-Tools/
 
 1. Create a free project at [neon.tech](https://neon.tech)
 2. Copy the **pooled** connection string
-3. Set `DATABASE_URL` in `.env` — tables are created automatically on server start
+3. Set `DATABASE_URL` in `.env` — tables are created automatically on server start:
+   - Banner: `checklist_checks`, `cdn_upload_overrides`, `confirmed_bugs`
+   - Splash: `splash_checks`, `splash_upload_overrides` (auto-migrates legacy `month_id` → `week_id`)
 
-Without `DATABASE_URL`, checklist state uses in-memory storage (resets on server restart).
+Without `DATABASE_URL`, checklist and upload-override state use in-memory storage (resets on server restart).
+
+### 3b. Splash workbook (optional — Tool C / D)
+
+1. Open the Splash settings workbook in Google Sheets
+2. Share with the **same service account** as Viewer
+3. Copy its Sheet ID into `SPLASH_SHEET_ID` in `.env`
+4. Ensure the tab is named **`ID - Settings`** (event index col **B**, CDN cols **O** Anno / **Q** Splash)
+
+Omit `SPLASH_SHEET_ID` to run banner-only; splash routes return `503` and Tool C/D are unavailable.
 
 ### 4. Configure environment
 
@@ -284,6 +357,18 @@ The **next row** is the column header row. Columns are mapped **by header name**
 
 Data rows follow until the next section header.
 
+Empty section-break rows (blank spacing rows) and rows with neither `Nama tab` nor `CDN Link` are skipped.
+
+### Merged-cell event names
+
+Google Sheets only returns the **first row** value when `Nama tab` cells are merged vertically. Subsequent rows in the merge arrive with an empty name column but their own CDN links.
+
+The parser **inherits the last seen `Nama tab`** within each section block, so all CDN rows in a merge group share the same `displayName` (e.g. one "Token Ring" name on four Gacha assets).
+
+### Asset tags
+
+When a row has a sheet event name plus a CDN URL, an **asset tag** is derived from the CDN filename (e.g. `mallsmall.png` → **Mall small**, `LobbyBGID_ind.ff_extend` → **Lobby BG**). Tags appear in Tool A, Tool B, and the Summarize modal so multi-asset events are distinguishable.
+
 ### Section alias map
 
 | Canonical placement | Sheet aliases |
@@ -314,6 +399,16 @@ All dates are interpreted in **WIB (UTC+7, `Asia/Jakarta`)** via Luxon.
 
 Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel epoch (1899-12-30).
 
+### Splash & Anno sheet (`ID - Settings`)
+
+- Fetches columns **B:Z** (event name in **Index** col B; status, dates, GoPos, Trello)
+- **CDN paths:** col **O** (`Anno Banner`) and col **Q** (`Splash Banner`) — also fetched as dedicated single-column ranges because Google Sheets omits trailing empty cells in wide `B:Z` rows, which would otherwise drop URLs in Q
+- Header row detected by `Index`/`Desc` + `Status`; columns mapped **by header name** (not fixed letters)
+- One data row can split into **two records** (Splash + Anno) when both sides have dates, Sort_ID, or CDN data
+- Status values: `TRELLO DONE`, `NEED TO UPDATE TRELLO`, `SCHEDULED`, `DONE`
+- **Week scope** reuses the same 4 sub-weeks as Banner (`fetchWeeks`); records overlap a sub-week when their active period intersects it
+- **GoPos lookup** fuzzy-matches splash event names against banner rows from the latest 4 CDN checklist weeks (read-only suggestions)
+
 ---
 
 ## CDN health check flow
@@ -324,12 +419,60 @@ For every row with a valid CDN URL:
 2. **Client cache** — skip re-check if result cached in browser (10 min)
 3. **Primary:** client-side `<img>` `onload` / `onerror`
 4. **Fallback:** `GET /api/cdn-check?url=...` — server cached HEAD request
-5. **No URL** → grey "N/A"
-6. **Timeout** → 5s → broken
+5. **UI:** blue spinner badge **"Checking CDN…"** while in progress
+6. **No URL** → grey "N/A"
+7. **Timeout** → 5s → amber **"CDN unreachable"**
 
 Re-checks do **not** re-fire on unrelated UI re-renders (stable effect dependencies + caching).
 
-Broken links are **not** auto-reported. User clicks **"Confirm as Bug"** → tally increments → **"Copy Bug Report"** copies plain text for Slack/bug tracker.
+**Refresh sheet** clears both client and server CDN check caches and forces a fresh health check on every visible row.
+
+---
+
+## QA upload overrides
+
+The app does **not** write back to Google Sheets. QA can mark rows as uploaded locally when the sheet `CDN Uploaded` column lags behind reality.
+
+| Action | Effect |
+|---|---|
+| **Mark as uploaded** | Row treated as uploaded; removed from default missing list; counts toward **QA marked uploaded** |
+| **Revert to unuploaded** | Row returns to missing list (enable **Include uploaded rows** to find and revert) |
+
+Overrides are keyed by `week_id` + `row_id` and stored in Neon (`cdn_upload_overrides`) or in-memory when `DATABASE_URL` is unset. The effective uploaded state is `override ?? sheet CDN Uploaded`.
+
+---
+
+## Summarize unique events
+
+**Summarize** (Tool A header) opens a modal for the **full selected sub-week** — independent of day/placement filters on the main table.
+
+| Control | Behavior |
+|---|---|
+| **Not uploaded** (default) | Unique `displayName` values with at least one non-uploaded asset |
+| **Uploaded** | Unique events with at least one uploaded asset |
+| **Include Craftland** | Off by default; toggles Craftland map rows into the list |
+| **Copy list** | Clipboard report with header, numbered events, multiline names, assets grouped by placement |
+
+Example copy format:
+
+```
+FFID CDN Event Summary
+Status: Not uploaded
+Events: 12
+Scope: In-game banners only
+Week: 10 - 16 Jun
+
+========================================
+
+[1] Emote Protes Pinalti
+    Assets:
+      • Overview
+
+[2] Faded Wheel Bundle
+    Assets:
+      • Shopping Mall: Mall small, Title mall
+      • Slide Banner: Slidebanner
+```
 
 ---
 
@@ -339,10 +482,13 @@ Stored in Neon when `DATABASE_URL` is set:
 
 | Table | Key | Purpose |
 |---|---|---|
-| `checklist_checks` | `week_id` + `check_date` + `row_id` | Checkbox state per day |
-| `confirmed_bugs` | `week_id` + `check_date` + `row_id` | Confirmed CDN bugs |
+| `checklist_checks` | `week_id` + `check_date` + `row_id` | Tool B checkbox state per day |
+| `cdn_upload_overrides` | `week_id` + `row_id` | Tool A QA upload overrides per week |
+| `confirmed_bugs` | `week_id` + `check_date` + `row_id` | Legacy bug API (UI removed) |
+| `splash_checks` | `week_id` + `check_date` + `row_id` | Tool D splash/anno checklist per day |
+| `splash_upload_overrides` | `week_id` + `row_id` | Tool C QA upload overrides per week |
 
-**Carry-over:** On day N, rows in **Still active** that were checked on any earlier day in the same week appear pre-checked (saved to day N automatically).
+**Carry-over:** On day N, rows in **Still active** that were checked on any earlier day in the same week appear pre-checked (saved to day N automatically). Same behaviour for Tool D (`splash_checks`).
 
 **Show all:** Progress unions all per-day checks across the week vs total unique rows in the week.
 
@@ -355,10 +501,14 @@ Stored in Neon when `DATABASE_URL` is set:
 ```
 User → /tool-a
   → GET /api/week/:weekId
+  → GET /api/checklist/:weekId/upload-overrides
   → Server: sheet cache → Google Sheets API
-  → Parse grid → filter sub-week rows
+  → Parse grid (merged names, asset tags) → filter sub-week rows
   → CDN health check per row (cached)
-  → User clicks Refresh → POST /api/refresh
+  → Mark uploaded → PUT /api/checklist/:weekId/upload-overrides
+  → Summarize → client-side unique event list + copy
+  → Open CDN upload → client builds cdnops.jingle.cn URL from CDN path
+  → Refresh → POST /api/refresh (clears CDN caches + re-checks health)
 ```
 
 ### Daily in-game QA (Tool B)
@@ -370,7 +520,29 @@ User → /tool-b → pick date
   → Group APPEAR / DISAPPEAR / Still active
   → Carry-over still-active from previous days
   → Toggle checkbox → PUT /api/checklist/:weekId/check
-  → Confirm bug → POST /api/checklist/:weekId/bugs
+```
+
+### Splash upload checker (Tool C)
+
+```
+User → /splash → pick sub-week → /tool-c
+  → GET /api/splash/week/:weekId
+  → GET /api/splash/upload-overrides/:weekId
+  → Server: splash cache → ID - Settings (B:Z + O/Q CDN cols)
+  → Parse → filter by sub-week overlap (+ optional day)
+  → GoPos lookup from banner rows
+  → Mark uploaded → PUT /api/splash/upload-overrides/:weekId
+  → Refresh → POST /api/splash/refresh
+```
+
+### Splash in-game QA (Tool D)
+
+```
+User → /tool-d → Splash or Anno tab → pick date
+  → GET /api/splash/week/:weekId
+  → GET /api/splash/checklist/:weekId
+  → Group APPEAR / DISAPPEAR / Still active (Sort_ID order)
+  → Toggle checkbox → PUT /api/splash/checklist/:weekId/check
 ```
 
 ---
@@ -416,6 +588,7 @@ npm install --include=dev && npm run build && mkdir -p credentials && printf '%s
 3. **Start command:** `npm start`
 4. **Required env vars:** `SHEET_ID`, `DATABASE_URL`, `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_SERVICE_ACCOUNT_KEY=./credentials/service-account.json`, `ADMIN_PASSWORD`, `SESSION_SECRET` (min 32 chars), `NODE_ENV=production`
 5. Or use the included `render.yaml` Blueprint and set secret env vars in the dashboard.
+6. **Optional:** set `SPLASH_SHEET_ID` to enable Tool C/D (see `render.yaml` splash env vars).
 
 Render sets `NODE_ENV=production` during build, which skips devDependencies by default — `--include=dev` fixes that.
 
@@ -437,11 +610,15 @@ npm test    # server + client unit tests
 | "Latest 4 weeks" | 4 most-recent distinct **sub-week** ranges across recent tabs |
 | Non-week tabs | Ignored (`Patch Note`, `Master Copy`, etc.) |
 | Cross-week carry-over | Tool B shows only the selected sub-week's rows |
-| Craftland | Own placement; non-URL rows skip CDN health check |
-| Checklist storage | Neon when configured; in-memory fallback otherwise |
+| Craftland | Own placement; excluded from Summarize by default; non-URL rows skip CDN health check |
+| QA upload overrides | Overlay on sheet `CDN Uploaded`; not written back to Google Sheets |
+| Summarize scope | Full sub-week (ignores Tool A day/placement filters) |
+| Checklist + overrides | Neon when configured; in-memory fallback otherwise |
 | Write-back to sheet | Not supported (read-only) |
 | Authentication | Single shared admin account (no Google Sign-In yet) |
 | Multi-user audit | No per-user tracking on checklist actions yet |
+| Splash tools | Require `SPLASH_SHEET_ID`; share workbook with service account; tab `ID - Settings` |
+| Splash CDN columns | O = Anno, Q = Splash; empty O with Q filled is normal — use **Splash** tab in Tool D |
 
 ---
 
@@ -450,6 +627,11 @@ npm test    # server + client unit tests
 - ~~Persistent checklist state~~ ✅ Neon PostgreSQL
 - ~~CDN check result caching~~ ✅ Client + server TTL cache
 - ~~Simple admin auth~~ ✅ Session cookie login
+- ~~QA upload overrides (mark as uploaded)~~ ✅ Neon + in-memory
+- ~~Summarize unique events + copy report~~ ✅
+- ~~Merged-cell name inheritance + asset tags~~ ✅
+- ~~CDN Ops upload deep-link~~ ✅ Client-side folder URL
+- ~~Splash & Anno Tool C/D (upload checker + in-game QA)~~ ✅
 - Multi-user / per-QA audit trail
 - Google Sign-In or team SSO
 - Write-back to Google Sheets (requires user OAuth)
@@ -464,7 +646,8 @@ npm test    # server + client unit tests
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `SHEET_ID` | Yes | — | Google Sheet ID from URL |
+| `SHEET_ID` | Yes | — | Banner Google Sheet ID from URL |
+| `SPLASH_SHEET_ID` | No | — | Splash workbook ID (`ID - Settings`); omit for banner-only |
 | `GOOGLE_SERVICE_ACCOUNT_KEY` | Yes | — | Path to service account JSON file |
 | `GOOGLE_SERVICE_ACCOUNT_JSON` | Deploy | — | Full JSON body (Render build writes to file) |
 | `CDN_BASE_URL` | No | `https://dl.dir.freefiremobile.com/common/` | CDN prefix for relative paths |
@@ -473,12 +656,15 @@ npm test    # server + client unit tests
 | `ADMIN_PASSWORD` | Prod | — | Admin password; enables auth when set |
 | `SESSION_SECRET` | Prod | — | Cookie signing secret (min 32 chars) |
 | `PORT` | No | `3001` | Server port (Render sets automatically) |
-| `CACHE_TTL_MS` | No | `300000` | Sheet data cache TTL (5 min) |
+| `CACHE_TTL_MS` | No | `300000` | Banner sheet data cache TTL (5 min) |
+| `SPLASH_CACHE_TTL_MS` | No | `300000` | Splash sheet parse cache TTL (5 min) |
+| `SPLASH_RECENT_WEEKS` | No | `4` | Only keep splash rows active in the last N weeks |
+| `SPLASH_RECENT_ROW_WINDOW` | No | `250` | Bottom N rows to fetch from `ID - Settings` |
 | `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
 | `NODE_ENV` | No | `development` | `production` enables static file serving + requires auth secrets |
 
-\*Required for persistent checklist in production; strongly recommended for team use.
+\*Required for persistent checklist and upload overrides in production; strongly recommended for team use.
 
 ---
 
-*FFID Weekly Banner QA Tools — built for Free Fire Indonesia LiveOps QA*
+*FFID LiveOps QA Tools — built for Free Fire Indonesia LiveOps QA*

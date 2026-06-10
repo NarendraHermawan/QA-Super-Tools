@@ -24,6 +24,15 @@ services:
         value: "600000"
       - key: SHEET_ID
         sync: false
+      # Optional — enables Tool C/D (Splash & Anno). Leave unset to keep banner-only deploy.
+      - key: SPLASH_SHEET_ID
+        sync: false
+      - key: SPLASH_CACHE_TTL_MS
+        value: "300000"
+      - key: SPLASH_RECENT_WEEKS
+        value: "4"
+      - key: SPLASH_RECENT_ROW_WINDOW
+        value: "250"
       - key: DATABASE_URL
         sync: false
       - key: GOOGLE_SERVICE_ACCOUNT_JSON

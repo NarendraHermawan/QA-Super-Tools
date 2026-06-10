@@ -9,6 +9,7 @@ import {
   getLatestSubWeeks,
 } from '../parsing/weekModel.js';
 import type {
+  BannerRow,
   SubWeek,
   WeekDetailResponse,
   WeeksResponse,
@@ -84,4 +85,18 @@ export async function refreshData(): Promise<WeeksResponse> {
 
 export function resetSheetsClient(): void {
   sheetsClient = null;
+}
+
+export async function getAllBannerRows(): Promise<BannerRow[]> {
+  const { weeks, grids } = await loadCache();
+  const rows: BannerRow[] = [];
+
+  for (const week of weeks) {
+    const grid = grids[week.tabName];
+    if (!grid) continue;
+    const weekData = buildWeekData(week, grid, config.cdnBaseUrl);
+    rows.push(...weekData.allRows);
+  }
+
+  return rows;
 }

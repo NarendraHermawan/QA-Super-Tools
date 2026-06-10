@@ -38,6 +38,74 @@ export interface BannerRow {
   placement: CanonicalPlacement;
   rowState: RowState;
   subWeekLabel: string;
+  gopos?: string | null;
+  subGopos?: string | null;
+}
+
+export type SplashAssetType = 'splash' | 'anno';
+
+export type SplashStatus =
+  | 'need_to_update_trello'
+  | 'trello_done'
+  | 'scheduled'
+  | 'done'
+  | 'unknown';
+
+export type SplashToolCSection = 'ready' | 'blocked' | 'needs_review' | 'uploaded';
+
+export type GoposLookupResult =
+  | {
+      status: 'suggested';
+      gopos: string;
+      subGopos: string;
+      matchType: 'exact' | 'fuzzy';
+      matchCount: number;
+    }
+  | {
+      status: 'conflict';
+      gopos: string;
+      subGopos: string;
+      conflictCount: number;
+    }
+  | { status: 'not_found' };
+
+export interface SplashRecord {
+  id: string;
+  assetType: SplashAssetType;
+  desc: string;
+  descDisplay: string;
+  start: string | null;
+  end: string | null;
+  sortId: number | null;
+  uniqueId: string;
+  status: SplashStatus;
+  statusRaw: string;
+  statusHint: string | null;
+  cdnUrl: string | null;
+  trelloCard: string | null;
+  sheetGopos: string | null;
+  sheetSubGopos: string | null;
+  goposLookup: GoposLookupResult;
+  scheduledWithoutUrl: boolean;
+  toolCSection: SplashToolCSection;
+  monthId: string | null;
+}
+
+export interface SplashWeekSummary {
+  total: number;
+  trelloDone: number;
+  needToUpdate: number;
+  scheduled: number;
+  ready: number;
+  blocked: number;
+  needsReview: number;
+}
+
+export interface SplashWeekDetailResponse {
+  week: SubWeek;
+  days: string[];
+  records: SplashRecord[];
+  summary: SplashWeekSummary;
 }
 
 export interface WeekDetailResponse {

@@ -67,6 +67,10 @@ function buildColumnMap(headerRow: GridRow): ColumnMap {
       map.assetDone = index;
     } else if (key === 'cdn uploaded') {
       map.cdnUploaded = index;
+    } else if (key === 'gopos') {
+      map.gopos = index;
+    } else if (key === 'subgopos' || key === 'sub gopos') {
+      map.subGopos = index;
     }
   });
   return map;
@@ -116,6 +120,9 @@ function parseDataRow(
   const assetTag =
     effectiveName && rawCdn ? assetTagFromCdn(cdnSource) : null;
 
+  const rawGopos = String(getCell(row, columns.gopos) ?? '').trim();
+  const rawSubGopos = String(getCell(row, columns.subGopos) ?? '').trim();
+
   return {
     id: `${placement}-${subWeekLabel}-${rowIndex}`,
     namaTab: effectiveName,
@@ -130,6 +137,8 @@ function parseDataRow(
     placement,
     rowState: computeRowState(assetDone, cdnUploaded),
     subWeekLabel,
+    gopos: rawGopos || null,
+    subGopos: rawSubGopos || null,
   };
 }
 

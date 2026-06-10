@@ -14,12 +14,16 @@ function resolveFromProjectRoot(filePath: string): string {
 
 export const config = {
   sheetId: process.env.SHEET_ID ?? '',
+  splashSheetId: process.env.SPLASH_SHEET_ID ?? '',
   serviceAccountKeyPath: resolveFromProjectRoot(
     process.env.GOOGLE_SERVICE_ACCOUNT_KEY ?? '',
   ),
   cdnBaseUrl: process.env.CDN_BASE_URL ?? 'https://dl.dir.freefiremobile.com/common/',
   port: Number(process.env.PORT ?? 3001),
   cacheTtlMs: Number(process.env.CACHE_TTL_MS ?? 300_000),
+  splashCacheTtlMs: Number(process.env.SPLASH_CACHE_TTL_MS ?? 300_000),
+  splashRecentWeeks: Number(process.env.SPLASH_RECENT_WEEKS ?? 4),
+  splashRecentRowWindow: Number(process.env.SPLASH_RECENT_ROW_WINDOW ?? 250),
   cdnCheckCacheTtlMs: Number(process.env.CDN_CHECK_CACHE_TTL_MS ?? 600_000),
   databaseUrl: process.env.DATABASE_URL ?? '',
   adminUsername: process.env.ADMIN_USERNAME ?? 'admin',

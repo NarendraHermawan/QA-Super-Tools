@@ -8,6 +8,7 @@ import { resolveCdnOpsUploadUrlSync } from '../parsing/cdnOpsUpload.js';
 import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
 import { config } from '../config.js';
 import { checklistRouter } from './checklist.js';
+import { splashRouter } from './splashApi.js';
 import {
   fetchWeekById,
   fetchWeeks,
@@ -18,6 +19,7 @@ import {
 export const apiRouter = Router();
 
 apiRouter.use('/checklist', checklistRouter);
+apiRouter.use('/splash', splashRouter);
 
 apiRouter.get('/weeks', async (_req, res, next) => {
   try {
