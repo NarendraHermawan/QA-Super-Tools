@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { cdnUrlForHealthCheck, normalizeCdnLink } from './cdnLink.js';
+import {
+  assetTagFromCdn,
+  cdnUrlForHealthCheck,
+  normalizeCdnLink,
+} from './cdnLink.js';
 import {
   isRelevantSubWeek,
   parseCellDate,
@@ -221,6 +225,84 @@ describe('sectionParser', () => {
     expect(rows).toHaveLength(3);
     expect(rows.every((r) => r.displayName === mergedName)).toBe(true);
     expect(rows.every((r) => r.namaTab === mergedName)).toBe(true);
+    expect(rows.map((r) => r.assetTag)).toEqual(['Lobby BG', 'Tab', 'Title']);
+  });
+
+  it('tags shopping mall assets under one merged event name', () => {
+    const eventName = 'New Web Event - PIGGY BANK';
+    const grid = [
+      ['NEW Shopping mall', '10 - 16 Jun'],
+      [
+        'Nama tab',
+        'CDN Link',
+        '',
+        '',
+        '',
+        'Start Time',
+        'End Time',
+        '',
+        '',
+        '',
+        'Asset Done',
+        'CDN Uploaded',
+      ],
+      [
+        eventName,
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/mallsmall.png',
+        '',
+        '',
+        '',
+        '2026-06-13 00:00:00',
+        '2026-06-19 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+      [
+        '',
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/titlemall.png',
+        '',
+        '',
+        '',
+        '2026-06-13 00:00:00',
+        '2026-06-19 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+      [
+        '',
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/bgmall.ff_extend',
+        '',
+        '',
+        '',
+        '2026-06-13 00:00:00',
+        '2026-06-19 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+    ];
+
+    const rows = parseSheetGrid(
+      SAMPLE_TAB_NAME,
+      grid,
+      'https://dl.dir.freefiremobile.com/common/',
+    );
+
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.displayName === eventName)).toBe(true);
+    expect(rows.map((r) => r.assetTag)).toEqual([
+      'Mall small',
+      'Title mall',
+      'Mall background',
+    ]);
   });
 
   it('builds week data for a selected sub-week only', () => {
@@ -233,6 +315,29 @@ describe('sectionParser', () => {
 });
 
 describe('cdnLink', () => {
+  it('derives asset tags from CDN filenames for merged event rows', () => {
+    expect(
+      assetTagFromCdn(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/mallsmall.png',
+      ),
+    ).toBe('Mall small');
+    expect(
+      assetTagFromCdn(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/titlemall.png',
+      ),
+    ).toBe('Title mall');
+    expect(
+      assetTagFromCdn(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/130626_WNBENVEETEW/bgmall.ff_extend',
+      ),
+    ).toBe('Mall background');
+    expect(
+      assetTagFromCdn(
+        'https://dl.dir.freefiremobile.com/common/OB53/CSH/gacha/NUTSANGEROVNRLKIEI_100626_LobbyBGID_ind.ff_extend',
+      ),
+    ).toBe('Lobby BG');
+  });
+
   it('normalizes relative and skips non-url values', () => {
     expect(
       normalizeCdnLink('OB53/ID/foo/overview.jpg', 'https://dl.dir.freefiremobile.com/common/'),

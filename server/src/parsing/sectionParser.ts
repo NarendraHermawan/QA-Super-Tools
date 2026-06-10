@@ -1,5 +1,6 @@
 import { CANONICAL_PLACEMENTS, SECTION_ALIASES } from './constants.js';
 import {
+  assetTagFromCdn,
   displayNameFromCdn,
   isHttpUrl,
   normalizeCdnLink,
@@ -109,14 +110,17 @@ function parseDataRow(
   const cdnUploaded = parseBool(getCell(row, columns.cdnUploaded));
 
   const effectiveName = rawName || inheritedNamaTab;
+  const cdnSource = cdnUrl ?? (isHttpUrl(rawCdn) ? rawCdn : rawCdn);
   const displayName =
-    effectiveName ||
-    displayNameFromCdn(cdnUrl ?? (isHttpUrl(rawCdn) ? rawCdn : rawCdn));
+    effectiveName || displayNameFromCdn(cdnSource);
+  const assetTag =
+    effectiveName && rawCdn ? assetTagFromCdn(cdnSource) : null;
 
   return {
     id: `${placement}-${subWeekLabel}-${rowIndex}`,
     namaTab: effectiveName,
     displayName,
+    assetTag,
     cdnLink: rawCdn || null,
     cdnUrl,
     startTime: startDt ? toIsoDateTime(startDt) : '',

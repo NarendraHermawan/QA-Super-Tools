@@ -28,6 +28,7 @@ export interface BannerRow {
   id: string;
   namaTab: string;
   displayName: string;
+  assetTag: string | null;
   cdnLink: string | null;
   cdnUrl: string | null;
   startTime: string;

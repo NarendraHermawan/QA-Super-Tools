@@ -1,3 +1,4 @@
+import { EventNameWithTag } from './EventNameWithTag';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
 import { CdnUploadButton } from './CdnUploadButton';
 import { CdnUploadStatusActions } from './CdnUploadStatusActions';
@@ -68,7 +69,10 @@ export function ToolACdnTable({
                   }`}
                 >
                   <td>
-                    <p className="font-medium text-ink">{row.displayName}</p>
+                    <EventNameWithTag
+                      displayName={row.displayName}
+                      assetTag={row.assetTag}
+                    />
                   </td>
                   <td>
                     <StatusBadge variant={rowStateVariant(rowState)}>

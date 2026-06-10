@@ -6,6 +6,7 @@ const baseRow: BannerRow = {
   id: 'row-1',
   namaTab: 'Tab',
   displayName: 'Test',
+  assetTag: null,
   cdnLink: null,
   cdnUrl: 'https://example.com/a.ff_extend',
   startTime: '2026-06-10',

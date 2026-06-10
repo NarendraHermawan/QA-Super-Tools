@@ -1,3 +1,4 @@
+import { EventNameWithTag } from './EventNameWithTag';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
 import { CdnUploadButton } from './CdnUploadButton';
 import type { BannerRow, ChecklistGroup } from '../types';
@@ -55,13 +56,11 @@ function renderRow(
         />
       </td>
       <td>
-        <p
-          className={`font-medium text-ink ${
-            checked ? 'line-through text-ink-muted' : ''
-          }`}
-        >
-          {row.displayName}
-        </p>
+        <EventNameWithTag
+          displayName={row.displayName}
+          assetTag={row.assetTag}
+          strikethrough={checked}
+        />
       </td>
       <td className="text-2xs text-ink-secondary">{row.placement}</td>
       <td>
