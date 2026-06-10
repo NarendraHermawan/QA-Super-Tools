@@ -20,6 +20,7 @@ import {
   groupRowsByPlacement,
   splitByCraftland,
 } from '../utils/placements';
+import { clearClientCdnCheckCache } from '../utils/cdnCheckCache';
 import { countMarkedUploaded } from '../utils/uploadOverrides';
 import { LoadingState } from '../components/ui/LoadingState';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -47,6 +48,7 @@ export function ToolA() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [brokenRows, setBrokenRows] = useState<Set<string>>(new Set());
+  const [cdnHealthRefreshToken, setCdnHealthRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const viewAllWeek = isWeekViewAll(selectedDate);
@@ -147,6 +149,8 @@ export function ToolA() {
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
+      clearClientCdnCheckCache();
+      setBrokenRows(new Set());
       await refreshWeeks();
       if (!selectedWeek) return;
       const [data, overrideData] = await Promise.all([
@@ -155,6 +159,7 @@ export function ToolA() {
       ]);
       setRows(Object.values(data.sections).flat());
       setUploadOverridesState(selectedWeek.id, overrideData.overrides);
+      setCdnHealthRefreshToken((token) => token + 1);
     } finally {
       setRefreshing(false);
     }
@@ -294,6 +299,7 @@ export function ToolA() {
               includeUploaded={includeUploaded}
               uploadOverrides={uploadOverrides}
               brokenRows={brokenRows}
+              cdnHealthRefreshToken={cdnHealthRefreshToken}
               onBroken={markBroken}
               onMarkUploaded={handleMarkUploaded}
               onRevertUnuploaded={handleRevertUnuploaded}
@@ -349,6 +355,7 @@ export function ToolA() {
                 includeUploaded={includeUploaded}
                 uploadOverrides={uploadOverrides}
                 brokenRows={brokenRows}
+                cdnHealthRefreshToken={cdnHealthRefreshToken}
                 onBroken={markBroken}
                 onMarkUploaded={handleMarkUploaded}
                 onRevertUnuploaded={handleRevertUnuploaded}

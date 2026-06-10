@@ -16,6 +16,7 @@ interface Props {
   includeUploaded: boolean;
   uploadOverrides: UploadOverrides;
   brokenRows: Set<string>;
+  cdnHealthRefreshToken: number;
   onBroken: (rowId: string) => void;
   onMarkUploaded: (rowId: string) => void;
   onRevertUnuploaded: (rowId: string) => void;
@@ -27,6 +28,7 @@ export function ToolACdnTable({
   includeUploaded,
   uploadOverrides,
   brokenRows,
+  cdnHealthRefreshToken,
   onBroken,
   onMarkUploaded,
   onRevertUnuploaded,
@@ -98,6 +100,7 @@ export function ToolACdnTable({
                     <div className="flex flex-col items-start gap-1.5">
                       <CdnHealthIndicator
                         url={row.cdnUrl}
+                        refreshToken={cdnHealthRefreshToken}
                         onBroken={() => onBroken(row.id)}
                       />
                       <CdnUploadStatusActions

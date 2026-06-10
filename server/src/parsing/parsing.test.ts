@@ -149,6 +149,80 @@ describe('sectionParser', () => {
     ]);
   });
 
+  it('inherits Nama tab from merged cells to subsequent CDN rows', () => {
+    const mergedName =
+      'Token Ring - [UNIVERSAL] Super Fusion (710045103), Super Void (710045104)';
+    const grid = [
+      ['Gacha', '10 - 16 Jun'],
+      [
+        'Nama tab',
+        'CDN Link',
+        '',
+        '',
+        '',
+        'Start Time',
+        'End Time',
+        '',
+        '',
+        '',
+        'Asset Done',
+        'CDN Uploaded',
+      ],
+      [
+        mergedName,
+        'https://dl.dir.freefiremobile.com/common/OB53/CSH/gacha/NUTSANGEROVNRLKIEI_100626_LobbyBGID_ind.ff_extend',
+        '',
+        '',
+        '',
+        '2026-06-10 00:00:00',
+        '2026-06-16 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+      [
+        '',
+        'https://dl.dir.freefiremobile.com/common/OB53/CSH/gacha/NUTSANGEROVNRLKIEI_100626_TabID_ind.ff_extend',
+        '',
+        '',
+        '',
+        '2026-06-10 00:00:00',
+        '2026-06-16 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+      [
+        '',
+        'https://dl.dir.freefiremobile.com/common/OB53/CSH/gacha/NUTSANGEROVNRLKIEI_100626_TitleID_ind.png',
+        '',
+        '',
+        '',
+        '2026-06-10 00:00:00',
+        '2026-06-16 23:59:59',
+        '',
+        '',
+        '',
+        1,
+        1,
+      ],
+    ];
+
+    const rows = parseSheetGrid(
+      SAMPLE_TAB_NAME,
+      grid,
+      'https://dl.dir.freefiremobile.com/common/',
+    );
+
+    expect(rows).toHaveLength(3);
+    expect(rows.every((r) => r.displayName === mergedName)).toBe(true);
+    expect(rows.every((r) => r.namaTab === mergedName)).toBe(true);
+  });
+
   it('builds week data for a selected sub-week only', () => {
     const subWeeks = buildSubWeeksFromTab(SAMPLE_TAB_NAME, sampleGrid);
     const week = subWeeks.find((w) => w.start === '2026-06-10');

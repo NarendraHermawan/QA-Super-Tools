@@ -12,6 +12,8 @@ type HealthStatus = 'checking' | 'ok' | 'broken' | 'na';
 interface Props {
   url: string | null;
   onBroken?: () => void;
+  /** Bump to force a fresh CDN health check (e.g. after Refresh sheet). */
+  refreshToken?: number;
 }
 
 function resolveInitialStatus(url: string | null): HealthStatus {
@@ -20,7 +22,7 @@ function resolveInitialStatus(url: string | null): HealthStatus {
   return cached ?? 'checking';
 }
 
-export function CdnHealthIndicator({ url, onBroken }: Props) {
+export function CdnHealthIndicator({ url, onBroken, refreshToken = 0 }: Props) {
   const onBrokenRef = useRef(onBroken);
   onBrokenRef.current = onBroken;
 
@@ -90,7 +92,7 @@ export function CdnHealthIndicator({ url, onBroken }: Props) {
       img.onload = null;
       img.onerror = null;
     };
-  }, [url]);
+  }, [url, refreshToken]);
 
   if (status === 'na') {
     return <StatusBadge variant="neutral">No URL</StatusBadge>;

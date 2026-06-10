@@ -90,6 +90,7 @@ function parseDataRow(
   subWeekLabel: string,
   rowIndex: number,
   cdnBaseUrl: string,
+  inheritedNamaTab: string,
 ): BannerRow | null {
   const rawCdn = String(getCell(row, columns.cdnLink) ?? '').trim();
   const rawName = String(getCell(row, columns.namaTab) ?? '').trim();
@@ -107,12 +108,14 @@ function parseDataRow(
   const assetDone = parseBool(getCell(row, columns.assetDone));
   const cdnUploaded = parseBool(getCell(row, columns.cdnUploaded));
 
+  const effectiveName = rawName || inheritedNamaTab;
   const displayName =
-    rawName || displayNameFromCdn(cdnUrl ?? (isHttpUrl(rawCdn) ? rawCdn : rawCdn));
+    effectiveName ||
+    displayNameFromCdn(cdnUrl ?? (isHttpUrl(rawCdn) ? rawCdn : rawCdn));
 
   return {
     id: `${placement}-${subWeekLabel}-${rowIndex}`,
-    namaTab: rawName,
+    namaTab: effectiveName,
     displayName,
     cdnLink: rawCdn || null,
     cdnUrl,
@@ -153,9 +156,13 @@ export function parseSheetGrid(
     const columns = buildColumnMap(grid[i]);
     i += 1;
 
+    let lastNamaTab = '';
     while (i < grid.length && !isSectionHeaderRow(grid[i])) {
       const dataRow = grid[i];
       if (!isBlankGridRow(dataRow) && !isColumnHeaderRow(dataRow)) {
+        const rawName = String(getCell(dataRow, columns.namaTab) ?? '').trim();
+        if (rawName) lastNamaTab = rawName;
+
         const parsed = parseDataRow(
           dataRow,
           columns,
@@ -163,6 +170,7 @@ export function parseSheetGrid(
           subWeekLabel,
           i,
           cdnBaseUrl,
+          lastNamaTab,
         );
         if (parsed) rows.push(parsed);
       }

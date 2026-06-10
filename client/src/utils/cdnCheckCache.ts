@@ -23,3 +23,7 @@ export function getClientCdnCheckCache(url: string): CdnCheckStatus | null {
 export function setClientCdnCheckCache(url: string, status: CdnCheckStatus): void {
   cache.set(url, { status, checkedAt: Date.now() });
 }
+
+export function clearClientCdnCheckCache(): void {
+  cache.clear();
+}

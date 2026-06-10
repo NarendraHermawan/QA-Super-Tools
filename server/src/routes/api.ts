@@ -1,5 +1,9 @@
 import { Router } from 'express';
-import { getCdnCheckCache, setCdnCheckCache } from '../cdnCheckCache.js';
+import {
+  clearCdnCheckCache,
+  getCdnCheckCache,
+  setCdnCheckCache,
+} from '../cdnCheckCache.js';
 import { resolveCdnOpsUploadUrlSync } from '../parsing/cdnOpsUpload.js';
 import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
 import { config } from '../config.js';
@@ -56,6 +60,7 @@ apiRouter.get('/week-for-date/:date', async (req, res, next) => {
 
 apiRouter.post('/refresh', async (_req, res, next) => {
   try {
+    clearCdnCheckCache();
     const data = await refreshData();
     res.json(data);
   } catch (error) {
