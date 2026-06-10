@@ -108,9 +108,9 @@ export function EntryPoint() {
               Latest 4 sub-weeks from the master sheet
             </p>
           </div>
-          <div className="space-y-4 p-4">
-            <div className="flex flex-wrap items-end gap-2">
-              <label className="block min-w-[12rem] flex-1">
+          <div className="space-y-4 p-3 sm:p-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+              <label className="block min-w-0 flex-1">
                 <span className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-ink-muted">
                   Sub-week
                 </span>
@@ -135,14 +135,14 @@ export function EntryPoint() {
                 {refreshing ? 'Refreshing…' : 'Refresh weeks'}
               </button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => {
                   const week = weeks.find((w) => w.id === selectedWeekId);
                   if (week) startTool('a', week);
                 }}
-                className="btn-primary"
+                className="btn-primary w-full sm:w-auto"
               >
                 CDN Checker
               </button>
@@ -152,7 +152,7 @@ export function EntryPoint() {
                   const week = weeks.find((w) => w.id === selectedWeekId);
                   if (week) startTool('b', week);
                 }}
-                className="btn-secondary"
+                className="btn-secondary w-full sm:w-auto"
               >
                 QA Checklist
               </button>
@@ -167,7 +167,7 @@ export function EntryPoint() {
               Auto-detects the covering sub-week
             </p>
           </div>
-          <div className="space-y-4 p-4">
+          <div className="space-y-4 p-3 sm:p-4">
             <label className="block">
               <span className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-ink-muted">
                 Date (WIB)
@@ -182,18 +182,18 @@ export function EntryPoint() {
             {dateWarning && (
               <p className="text-sm text-status-warn">{dateWarning}</p>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
               <button
                 type="button"
                 onClick={() => handleDateMode('a')}
-                className="btn-primary"
+                className="btn-primary w-full sm:w-auto"
               >
                 CDN Checker
               </button>
               <button
                 type="button"
                 onClick={() => handleDateMode('b')}
-                className="btn-secondary"
+                className="btn-secondary w-full sm:w-auto"
               >
                 QA Checklist
               </button>

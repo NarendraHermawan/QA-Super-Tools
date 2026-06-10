@@ -20,7 +20,7 @@ export function SplashAssetTypeFilter({
   onClear,
 }: Props) {
   return (
-    <>
+    <div className="chip-scroll md:flex-wrap md:overflow-visible">
       {SPLASH_ASSET_TYPE_OPTIONS.map(({ id, label }) => {
         const active = selected.length === 0 || selected.includes(id);
         return (
@@ -39,10 +39,10 @@ export function SplashAssetTypeFilter({
         );
       })}
       {selected.length > 0 && (
-        <button type="button" onClick={onClear} className="btn-ghost text-2xs">
+        <button type="button" onClick={onClear} className="btn-ghost shrink-0 text-2xs">
           Clear filter
         </button>
       )}
-    </>
+    </div>
   );
 }

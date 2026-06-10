@@ -23,7 +23,9 @@ export function ToolSelector() {
             <p className="text-sm text-ink-secondary">
               Scope by sub-week or date from the master banner sheet.
             </p>
-            <span className="btn-primary mt-4 inline-flex">Open Banner tools</span>
+            <span className="btn-primary mt-4 inline-flex w-full justify-center sm:w-auto">
+              Open Banner tools
+            </span>
           </div>
         </Link>
 
@@ -40,7 +42,9 @@ export function ToolSelector() {
             <p className="text-sm text-ink-secondary">
               Scope by calendar month and date from ID - Settings.
             </p>
-            <span className="btn-primary mt-4 inline-flex">Open Splash &amp; Anno</span>
+            <span className="btn-primary mt-4 inline-flex w-full justify-center sm:w-auto">
+              Open Splash &amp; Anno
+            </span>
           </div>
         </Link>
       </div>

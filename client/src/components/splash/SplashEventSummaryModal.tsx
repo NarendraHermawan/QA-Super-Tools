@@ -72,10 +72,7 @@ export function SplashEventSummaryModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="presentation"
-    >
+    <div className="modal-shell" role="presentation">
       <button
         type="button"
         className="absolute inset-0 bg-ink/40"
@@ -83,7 +80,7 @@ export function SplashEventSummaryModal({
         onClick={onClose}
       />
       <div
-        className="panel relative z-10 flex max-h-[min(85vh,720px)] w-full max-w-2xl flex-col shadow-card"
+        className="modal-panel sm:max-w-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="splash-event-summary-title"

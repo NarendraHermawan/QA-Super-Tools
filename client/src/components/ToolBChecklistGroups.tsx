@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import { EventNameWithTag } from './EventNameWithTag';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
 import { CdnUploadButton } from './CdnUploadButton';
+import { MobileFieldRow } from './ui/MobileFieldRow';
 import type { BannerRow, ChecklistGroup } from '../types';
 import { groupTitle, isSingleDayBanner } from '../utils/checklist';
 import { StatusBadge } from './ui/StatusBadge';
@@ -26,6 +28,83 @@ interface Props {
   brokenRows: Set<string>;
   onToggleChecked: (rowId: string) => void;
   onBroken: (rowId: string) => void;
+}
+
+function renderMobileCard(
+  row: BannerRow,
+  group: ChecklistGroup | 'all',
+  checkedRowIds: Set<string>,
+  brokenRows: Set<string>,
+  onToggleChecked: (rowId: string) => void,
+  onBroken: (rowId: string) => void,
+  notesColumn: 'period' | 'notes',
+) {
+  const checked = checkedRowIds.has(row.id);
+  const singleDay = isSingleDayBanner(row);
+  const isBroken = brokenRows.has(row.id);
+
+  return (
+    <article
+      key={`mobile-${group}-${row.id}`}
+      className={`mobile-card ${checked ? 'bg-surface opacity-70' : ''} ${
+        isBroken ? 'bg-status-warnBg/60' : ''
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={() => onToggleChecked(row.id)}
+          aria-label={`Mark ${row.displayName} as verified`}
+          className="mt-1 h-5 w-5 shrink-0 rounded border-line text-accent focus:ring-accent/30"
+        />
+        <div className="min-w-0 flex-1 space-y-3">
+          <EventNameWithTag
+            displayName={row.displayName}
+            assetTag={row.assetTag}
+            strikethrough={checked}
+          />
+          <MobileFieldRow label="Placement">
+            <p className="text-sm text-ink-secondary">{row.placement}</p>
+          </MobileFieldRow>
+          <MobileFieldRow label="CDN">
+            <StatusBadge variant={row.cdnUploaded ? 'ok' : 'warn'}>
+              {row.cdnUploaded ? 'Uploaded' : 'Missing'}
+            </StatusBadge>
+          </MobileFieldRow>
+          <MobileFieldRow label="Health">
+            <div className="flex flex-col items-start gap-1.5">
+              <CdnHealthIndicator
+                url={row.cdnUrl}
+                onBroken={() => onBroken(row.id)}
+              />
+              <CdnUploadButton cdnUrl={row.cdnUrl} cdnLink={row.cdnLink} />
+            </div>
+          </MobileFieldRow>
+          <MobileFieldRow
+            label={notesColumn === 'period' ? 'Active period' : 'Notes'}
+          >
+            <p className="text-sm tabular-nums text-ink-secondary">
+              {row.startTime ? (
+                <>
+                  {row.startTime.slice(0, 10)}
+                  <span className="text-ink-faint"> – </span>
+                  {row.endTime.slice(0, 10)}
+                </>
+              ) : (
+                '—'
+              )}
+              {singleDay && (
+                <span className="mt-1 block text-xs text-status-warn">
+                  Single-day — verify morning and evening
+                </span>
+              )}
+            </p>
+          </MobileFieldRow>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 function renderRow(
@@ -97,6 +176,87 @@ function renderRow(
   );
 }
 
+function ChecklistSection({
+  title,
+  badge,
+  count,
+  rows,
+  group,
+  checkedRowIds,
+  brokenRows,
+  onToggleChecked,
+  onBroken,
+  notesColumn,
+}: {
+  title: string;
+  badge?: ReactNode;
+  count: number;
+  rows: BannerRow[];
+  group: ChecklistGroup | 'all';
+  checkedRowIds: Set<string>;
+  brokenRows: Set<string>;
+  onToggleChecked: (rowId: string) => void;
+  onBroken: (rowId: string) => void;
+  notesColumn: 'period' | 'notes';
+}) {
+  return (
+    <section className="panel overflow-hidden">
+      <div className="panel-header flex items-center gap-3">
+        {badge}
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-ink">{title}</h2>
+          <p className="text-2xs text-ink-muted">
+            {count} item{count === 1 ? '' : 's'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mobile-card-list">
+        {rows.map((row) =>
+          renderMobileCard(
+            row,
+            group,
+            checkedRowIds,
+            brokenRows,
+            onToggleChecked,
+            onBroken,
+            notesColumn,
+          ),
+        )}
+      </div>
+
+      <div className="table-scroll hidden md:block">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th className="w-10" />
+              <th className="w-[26%]">Event / Map</th>
+              <th className="w-[16%]">Placement</th>
+              <th className="w-[12%]">CDN</th>
+              <th className="w-[14%]">Health</th>
+              <th className="w-[32%]">
+                {notesColumn === 'period' ? 'Active period' : 'Notes'}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) =>
+              renderRow(
+                row,
+                group,
+                checkedRowIds,
+                brokenRows,
+                onToggleChecked,
+                onBroken,
+              ),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export function ToolBChecklistGroups({
   grouped,
   flatRows,
@@ -112,40 +272,17 @@ export function ToolBChecklistGroups({
       (a.startTime || '').localeCompare(b.startTime || ''),
     );
     return (
-      <section className="panel overflow-hidden">
-        <div className="panel-header flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">{flatTitle}</h2>
-          <span className="text-2xs tabular-nums text-ink-muted">
-            {sorted.length} item{sorted.length === 1 ? '' : 's'}
-          </span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="w-10" />
-                <th className="w-[26%]">Event / Map</th>
-                <th className="w-[16%]">Placement</th>
-                <th className="w-[12%]">CDN</th>
-                <th className="w-[14%]">Health</th>
-                <th className="w-[32%]">Active period</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((row) =>
-                renderRow(
-                  row,
-                  'all',
-                  checkedRowIds,
-                  brokenRows,
-                  onToggleChecked,
-                  onBroken,
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ChecklistSection
+        title={flatTitle}
+        count={sorted.length}
+        rows={sorted}
+        group="all"
+        checkedRowIds={checkedRowIds}
+        brokenRows={brokenRows}
+        onToggleChecked={onToggleChecked}
+        onBroken={onBroken}
+        notesColumn="period"
+      />
     );
   }
 
@@ -155,45 +292,19 @@ export function ToolBChecklistGroups({
     if (items.length === 0) return null;
     const meta = GROUP_META[group];
     return (
-      <section key={group} className="panel overflow-hidden">
-        <div className="panel-header flex items-center gap-3">
-          <StatusBadge variant={meta.variant}>{meta.code}</StatusBadge>
-          <div>
-            <h2 className="text-sm font-semibold text-ink">
-              {groupTitle(group)}
-            </h2>
-            <p className="text-2xs text-ink-muted">
-              {items.length} item{items.length === 1 ? '' : 's'}
-            </p>
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th className="w-10" />
-                <th className="w-[30%]">Event / Map</th>
-                <th className="w-[18%]">Placement</th>
-                <th className="w-[12%]">CDN</th>
-                <th className="w-[14%]">Health</th>
-                <th className="w-[26%]">Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((row) =>
-                renderRow(
-                  row,
-                  group,
-                  checkedRowIds,
-                  brokenRows,
-                  onToggleChecked,
-                  onBroken,
-                ),
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <ChecklistSection
+        key={group}
+        title={groupTitle(group)}
+        badge={<StatusBadge variant={meta.variant}>{meta.code}</StatusBadge>}
+        count={items.length}
+        rows={items}
+        group={group}
+        checkedRowIds={checkedRowIds}
+        brokenRows={brokenRows}
+        onToggleChecked={onToggleChecked}
+        onBroken={onBroken}
+        notesColumn="notes"
+      />
     );
   };
 
@@ -216,14 +327,14 @@ export function ChecklistProgress({
   const progressPct = total ? Math.round((checked / total) * 100) : 0;
   return (
     <>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="panel px-4 py-3">
+      <div className="grid gap-3 grid-cols-2">
+        <div className="panel px-3 py-3 sm:px-4">
           <p className="stat-label">Progress</p>
           <p className="stat-value mt-1">
             {checked} / {total}
           </p>
         </div>
-        <div className="panel px-4 py-3">
+        <div className="panel px-3 py-3 sm:px-4">
           <p className="stat-label">Completion</p>
           <p className="stat-value mt-1">{progressPct}%</p>
         </div>

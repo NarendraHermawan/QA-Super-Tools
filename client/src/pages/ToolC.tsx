@@ -229,7 +229,7 @@ export function ToolC() {
           </ToolbarRow>
         </Toolbar>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Ready to upload" value={metrics.ready} />
           <StatCard label="Asset not ready" value={metrics.assetNotReady} />
           <StatCard label="QA marked uploaded" value={metrics.marked} />

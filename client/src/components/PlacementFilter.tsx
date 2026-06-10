@@ -9,7 +9,7 @@ interface Props {
 
 export function PlacementFilter({ selected, onToggle, onClear }: Props) {
   return (
-    <>
+    <div className="chip-scroll md:flex-wrap md:overflow-visible">
       {BANNER_PLACEMENTS.map((placement) => {
         const active =
           selected.length === 0 || selected.includes(placement);
@@ -32,11 +32,11 @@ export function PlacementFilter({ selected, onToggle, onClear }: Props) {
         <button
           type="button"
           onClick={onClear}
-          className="btn-ghost text-2xs"
+          className="btn-ghost shrink-0 text-2xs"
         >
           Clear filter
         </button>
       )}
-    </>
+    </div>
   );
 }

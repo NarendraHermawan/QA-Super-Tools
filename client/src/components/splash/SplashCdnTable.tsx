@@ -4,6 +4,7 @@ import { CdnHealthIndicator } from '../CdnHealthIndicator';
 import { CdnUploadButton } from '../CdnUploadButton';
 import { CdnUploadStatusActions } from '../CdnUploadStatusActions';
 import { StatusBadge } from '../ui/StatusBadge';
+import { MobileFieldRow } from '../ui/MobileFieldRow';
 import { GoposField } from './GoposField';
 import type { SplashRecord } from '../../types';
 import { splashStatusLabel, splashStatusVariant } from '../../utils/splashStatus';
@@ -47,6 +48,24 @@ function formatActivePeriod(
   return fmt(start ?? end!);
 }
 
+function formatActivePeriodMobile(
+  start: string | null,
+  end: string | null,
+): ReactNode {
+  if (!start && !end) return '—';
+  const fmt = (iso: string) => iso.slice(0, 16).replace('T', ' ');
+  if (start && end) {
+    return (
+      <>
+        {fmt(start)}
+        <span className="text-ink-faint"> to </span>
+        {fmt(end)}
+      </>
+    );
+  }
+  return fmt(start ?? end!);
+}
+
 export function SplashCdnTable({
   title,
   rows,
@@ -66,13 +85,124 @@ export function SplashCdnTable({
 
   return (
     <section className="panel overflow-hidden">
-      <div className="panel-header flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-ink">{title}</h2>
-        <span className="text-2xs tabular-nums text-ink-muted">
+      <div className="panel-header flex items-center justify-between gap-2">
+        <h2 className="min-w-0 text-sm font-semibold text-ink">{title}</h2>
+        <span className="shrink-0 text-2xs tabular-nums text-ink-muted">
           {rows.length} row{rows.length === 1 ? '' : 's'}
         </span>
       </div>
-      <div className="overflow-x-auto">
+
+      <div className="mobile-card-list">
+        {rows.map((record) => {
+          const uploaded = effectiveSplashUploaded(record, uploadOverrides);
+          const greyed = uploaded && includeUploaded;
+          const isBroken = brokenRows.has(record.id);
+          const assetLabel =
+            record.assetType === 'splash' ? 'Splash' : 'Anno';
+          const dup =
+            record.sortId !== null && duplicateSortIds?.has(record.sortId);
+
+          return (
+            <article
+              key={record.id}
+              className={`mobile-card ${greyed ? 'opacity-50' : ''} ${
+                isBroken ? 'bg-status-warnBg/60' : ''
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {onToggleCheck && (
+                  <input
+                    type="checkbox"
+                    checked={checkedIds?.has(record.id)}
+                    onChange={(e) =>
+                      onToggleCheck(record.id, e.target.checked)
+                    }
+                    className="mt-1 h-5 w-5 shrink-0 rounded border-line"
+                  />
+                )}
+                <div className="min-w-0 flex-1 space-y-3">
+                  <EventNameWithTag
+                    displayName={record.descDisplay}
+                    assetTag={assetLabel}
+                  />
+                  {record.statusHint && (
+                    <p className="text-xs italic text-ink-muted">
+                      {record.statusHint}
+                    </p>
+                  )}
+                  {dup && (
+                    <p className="text-xs text-status-warn">
+                      Duplicate Sort_ID #{record.sortId}
+                    </p>
+                  )}
+                  {record.scheduledWithoutUrl && (
+                    <p className="text-xs text-status-warn">
+                      SCHEDULED without CDN URL
+                    </p>
+                  )}
+                  <MobileFieldRow label="Status">
+                    <StatusBadge variant={splashStatusVariant(record.status)}>
+                      {splashStatusLabel(record.status, record.statusRaw)}
+                    </StatusBadge>
+                  </MobileFieldRow>
+                  <MobileFieldRow label="CDN path">
+                    <p className="cdn-path">{record.cdnUrl ?? '—'}</p>
+                    <CdnUploadButton cdnUrl={record.cdnUrl} />
+                  </MobileFieldRow>
+                  <MobileFieldRow label="GoPos / Sub GoPos">
+                    <div className="space-y-2">
+                      <GoposField
+                        label="GoPos"
+                        sheetValue={record.sheetGopos}
+                        lookup={record.goposLookup}
+                        field="gopos"
+                      />
+                      <GoposField
+                        label="Sub GoPos"
+                        sheetValue={record.sheetSubGopos}
+                        lookup={record.goposLookup}
+                        field="subGopos"
+                      />
+                    </div>
+                  </MobileFieldRow>
+                  <MobileFieldRow label="Active period">
+                    <p className="text-sm tabular-nums text-ink-secondary">
+                      {formatActivePeriodMobile(record.start, record.end)}
+                    </p>
+                  </MobileFieldRow>
+                  <MobileFieldRow label="Health">
+                    <div className="flex flex-col items-start gap-1.5">
+                      {record.cdnUrl ? (
+                        <CdnHealthIndicator
+                          url={record.cdnUrl}
+                          refreshToken={cdnHealthRefreshToken}
+                          onBroken={() => onBroken?.(record.id)}
+                        />
+                      ) : (
+                        <StatusBadge variant="neutral">N/A</StatusBadge>
+                      )}
+                      {showActions &&
+                        canMarkSplashUploaded(record.status) &&
+                        onMarkUploaded &&
+                        onRevertUploaded && (
+                          <CdnUploadStatusActions
+                            effectiveUploaded={uploaded}
+                            onMarkUploaded={() => onMarkUploaded(record.id)}
+                            onRevertUnuploaded={() =>
+                              onRevertUploaded(record.id)
+                            }
+                          />
+                        )}
+                    </div>
+                  </MobileFieldRow>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="table-scroll hidden md:block">
         <table className="data-table">
           <thead>
             <tr>

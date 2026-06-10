@@ -244,7 +244,7 @@ export function ToolA() {
           description="Overview, mall, gacha, event, and esports placements."
         />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Missing CDN (week)" value={bannerMetrics.missingWeek} />
           <StatCard
             label={viewAllWeek ? 'Go live this week' : 'Go live selected day'}

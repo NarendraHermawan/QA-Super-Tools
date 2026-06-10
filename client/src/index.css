@@ -8,10 +8,11 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply m-0 min-h-screen bg-surface text-ink font-sans text-sm leading-relaxed;
+    @apply m-0 min-h-screen bg-surface text-ink font-sans text-[15px] leading-relaxed sm:text-sm;
   }
 
   ::selection {
@@ -21,7 +22,7 @@
 
 @layer components {
   .page-shell {
-    @apply mx-auto w-full max-w-7xl px-4 py-6 sm:px-6;
+    @apply mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-6;
   }
 
   .panel {
@@ -29,19 +30,19 @@
   }
 
   .panel-header {
-    @apply border-b border-line bg-surface-sunken px-4 py-2.5;
+    @apply border-b border-line bg-surface-sunken px-3 py-2.5 sm:px-4;
   }
 
   .data-table {
-    @apply w-full text-left text-sm;
+    @apply w-full min-w-[640px] text-left text-sm;
   }
 
   .data-table thead th {
-    @apply sticky top-0 z-10 border-b border-line bg-surface-sunken px-4 py-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted;
+    @apply sticky top-0 z-10 border-b border-line bg-surface-sunken px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-ink-muted sm:px-4;
   }
 
   .data-table tbody td {
-    @apply border-b border-line px-4 py-3 align-top;
+    @apply border-b border-line px-3 py-3 align-top sm:px-4;
   }
 
   .data-table tbody tr:last-child td {
@@ -52,8 +53,31 @@
     @apply bg-surface;
   }
 
+  .table-scroll {
+    @apply -mx-px overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .mobile-card-list {
+    @apply divide-y divide-line md:hidden;
+  }
+
+  .mobile-card {
+    @apply space-y-3 px-3 py-3.5 sm:px-4;
+  }
+
+  .chip-scroll {
+    @apply -mx-1 flex flex-nowrap gap-2 overflow-x-auto overscroll-x-contain px-1 pb-0.5;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .chip-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   .filter-chip {
-    @apply inline-flex items-center rounded border border-line bg-surface-raised px-2.5 py-1 text-2xs font-medium text-ink-secondary transition-colors;
+    @apply inline-flex shrink-0 items-center rounded border border-line bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-secondary transition-colors sm:px-2.5 sm:py-1 sm:text-2xs;
   }
 
   .filter-chip-active {
@@ -61,7 +85,7 @@
   }
 
   .btn {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:min-h-0;
   }
 
   .btn-primary {
@@ -77,11 +101,11 @@
   }
 
   .field {
-    @apply w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20;
+    @apply w-full rounded-md border border-line bg-surface-raised px-3 py-2.5 text-base text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 sm:py-2 sm:text-sm;
   }
 
   .stat-value {
-    @apply text-2xl font-semibold tabular-nums tracking-tight text-ink;
+    @apply text-xl font-semibold tabular-nums tracking-tight text-ink sm:text-2xl;
   }
 
   .stat-label {
@@ -89,6 +113,14 @@
   }
 
   .cdn-path {
-    @apply font-mono text-2xs leading-relaxed text-ink-secondary break-all;
+    @apply font-mono text-xs leading-relaxed text-ink-secondary break-all sm:text-2xs;
+  }
+
+  .modal-shell {
+    @apply fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4;
+  }
+
+  .modal-panel {
+    @apply panel relative z-10 flex max-h-[92dvh] w-full flex-col rounded-t-xl shadow-card sm:max-h-[min(85vh,720px)] sm:rounded-md;
   }
 }

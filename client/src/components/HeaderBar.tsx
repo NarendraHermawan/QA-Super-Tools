@@ -26,7 +26,7 @@ export function HeaderBar() {
             resetSession();
             navigate('/');
           }}
-          className="btn-secondary shrink-0"
+          className="btn-secondary w-full shrink-0 sm:w-auto"
         >
           Change week
         </button>

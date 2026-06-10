@@ -20,13 +20,13 @@ export function ToolbarRow({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 px-4 py-3">
+    <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:px-4">
       {label && (
         <span className="shrink-0 text-2xs font-semibold uppercase tracking-wide text-ink-muted">
           {label}
         </span>
       )}
-      <div className="flex flex-1 flex-wrap items-center gap-2">{children}</div>
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }

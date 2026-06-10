@@ -10,7 +10,7 @@ export function DateFilterBar({ days, selectedDate, onSelect }: Props) {
   const weekView = isWeekViewAll(selectedDate);
 
   return (
-    <>
+    <div className="chip-scroll">
       <button
         type="button"
         onClick={() => onSelect(WEEK_VIEW_ALL)}
@@ -28,6 +28,6 @@ export function DateFilterBar({ days, selectedDate, onSelect }: Props) {
           {formatDayTab(day)}
         </button>
       ))}
-    </>
+    </div>
   );
 }

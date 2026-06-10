@@ -33,13 +33,15 @@ export function AssetTypeTabs({
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`filter-chip ${active === tab.id ? 'filter-chip-active' : 'hover:bg-surface-sunken'}`}
+          className={`filter-chip flex-1 justify-center sm:flex-none ${
+            active === tab.id ? 'filter-chip-active' : 'hover:bg-surface-sunken'
+          }`}
         >
           {tab.label}
           {tab.count ? (
