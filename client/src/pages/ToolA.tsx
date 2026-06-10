@@ -10,6 +10,7 @@ import { HeaderBar } from '../components/HeaderBar';
 import { IncludeCraftlandToggle } from '../components/IncludeCraftlandToggle';
 import { PlacementFilter } from '../components/PlacementFilter';
 import { SectionDivider } from '../components/SectionDivider';
+import { EventSummaryModal } from '../components/EventSummaryModal';
 import { ToolACdnTable } from '../components/ToolACdnTable';
 import { useAppStore } from '../store/useAppStore';
 import { BANNER_PLACEMENTS, CRAFTLAND_PLACEMENT } from '../types';
@@ -50,6 +51,7 @@ export function ToolA() {
   const [brokenRows, setBrokenRows] = useState<Set<string>>(new Set());
   const [cdnHealthRefreshToken, setCdnHealthRefreshToken] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const viewAllWeek = isWeekViewAll(selectedDate);
   const activeDate =
@@ -209,15 +211,32 @@ export function ToolA() {
           title="CDN Upload Checker"
           description="In-game banner CDN status. Craftland maps are tracked separately."
           actions={
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="btn-secondary"
-            >
-              {refreshing ? 'Refreshing…' : 'Refresh sheet'}
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setSummaryOpen(true)}
+                className="btn-secondary"
+              >
+                Summarize
+              </button>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="btn-secondary"
+              >
+                {refreshing ? 'Refreshing…' : 'Refresh sheet'}
+              </button>
+            </>
           }
+        />
+
+        <EventSummaryModal
+          open={summaryOpen}
+          onClose={() => setSummaryOpen(false)}
+          rows={rows}
+          uploadOverrides={uploadOverrides}
+          weekLabel={selectedWeek?.label}
         />
 
         <SectionDivider
