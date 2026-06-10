@@ -7,6 +7,10 @@ import {
   setChecklistItem,
   storageBackend,
 } from '../db/checklistRepo.js';
+import {
+  getUploadOverrides,
+  setUploadOverride,
+} from '../db/uploadOverrideRepo.js';
 import type { ConfirmedBug } from '../types.js';
 
 export const checklistRouter = Router();
@@ -79,6 +83,38 @@ checklistRouter.get('/:weekId/bugs', async (req, res, next) => {
 
     const bugs = await getConfirmedBugs(weekId, date);
     res.json({ bugs });
+  } catch (error) {
+    next(error);
+  }
+});
+
+checklistRouter.get('/:weekId/upload-overrides', async (req, res, next) => {
+  try {
+    const weekId = decodeURIComponent(req.params.weekId);
+    const overrides = await getUploadOverrides(weekId);
+    res.json({ overrides });
+  } catch (error) {
+    next(error);
+  }
+});
+
+checklistRouter.put('/:weekId/upload-overrides', async (req, res, next) => {
+  try {
+    const weekId = decodeURIComponent(req.params.weekId);
+    const { rowId, uploaded } = req.body as {
+      rowId?: string;
+      uploaded?: boolean;
+    };
+
+    if (!rowId || typeof uploaded !== 'boolean') {
+      res.status(400).json({
+        error: 'rowId and uploaded (boolean) are required',
+      });
+      return;
+    }
+
+    await setUploadOverride(weekId, rowId, uploaded);
+    res.json({ ok: true });
   } catch (error) {
     next(error);
   }

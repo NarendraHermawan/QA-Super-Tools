@@ -1,30 +1,35 @@
-import { BugRowActions } from './BugControls';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
 import { CdnUploadButton } from './CdnUploadButton';
-import type { BannerRow, CanonicalPlacement, ConfirmedBug } from '../types';
+import { CdnUploadStatusActions } from './CdnUploadStatusActions';
+import type { BannerRow, CanonicalPlacement } from '../types';
 import { rowStateLabel, rowStateVariant } from '../utils/checklist';
+import {
+  effectiveCdnUploaded,
+  effectiveRowState,
+  type UploadOverrides,
+} from '../utils/uploadOverrides';
 import { StatusBadge } from './ui/StatusBadge';
 
 interface Props {
   placement: CanonicalPlacement;
   rows: BannerRow[];
   includeUploaded: boolean;
-  activeDate: string;
+  uploadOverrides: UploadOverrides;
   brokenRows: Set<string>;
-  confirmedBugs: ConfirmedBug[];
   onBroken: (rowId: string) => void;
-  onConfirmBug: (bug: ConfirmedBug) => void;
+  onMarkUploaded: (rowId: string) => void;
+  onRevertUnuploaded: (rowId: string) => void;
 }
 
 export function ToolACdnTable({
   placement,
   rows,
   includeUploaded,
-  activeDate,
+  uploadOverrides,
   brokenRows,
-  confirmedBugs,
   onBroken,
-  onConfirmBug,
+  onMarkUploaded,
+  onRevertUnuploaded,
 }: Props) {
   if (rows.length === 0) return null;
 
@@ -49,9 +54,10 @@ export function ToolACdnTable({
           </thead>
           <tbody>
             {rows.map((row) => {
-              const greyed = row.cdnUploaded && includeUploaded;
+              const uploaded = effectiveCdnUploaded(row, uploadOverrides);
+              const greyed = uploaded && includeUploaded;
               const isBroken = brokenRows.has(row.id);
-              const isConfirmed = confirmedBugs.some((b) => b.id === row.id);
+              const rowState = effectiveRowState(row, uploadOverrides);
               return (
                 <tr
                   key={row.id}
@@ -63,8 +69,8 @@ export function ToolACdnTable({
                     <p className="font-medium text-ink">{row.displayName}</p>
                   </td>
                   <td>
-                    <StatusBadge variant={rowStateVariant(row.rowState)}>
-                      {rowStateLabel(row.rowState)}
+                    <StatusBadge variant={rowStateVariant(rowState)}>
+                      {rowStateLabel(rowState)}
                     </StatusBadge>
                   </td>
                   <td>
@@ -94,15 +100,10 @@ export function ToolACdnTable({
                         url={row.cdnUrl}
                         onBroken={() => onBroken(row.id)}
                       />
-                      <BugRowActions
-                        onConfirm={onConfirmBug}
-                        rowId={row.id}
-                        eventName={row.displayName}
-                        placement={row.placement}
-                        cdnUrl={row.cdnUrl}
-                        date={activeDate}
-                        isBroken={isBroken}
-                        isConfirmed={isConfirmed}
+                      <CdnUploadStatusActions
+                        effectiveUploaded={uploaded}
+                        onMarkUploaded={() => onMarkUploaded(row.id)}
+                        onRevertUnuploaded={() => onRevertUnuploaded(row.id)}
                       />
                     </div>
                   </td>

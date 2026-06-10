@@ -74,3 +74,21 @@ export function saveConfirmedBug(
 export function fetchStorageBackend(): Promise<{ backend: 'neon' | 'memory' }> {
   return request('/api/checklist/storage');
 }
+
+export function fetchUploadOverrides(
+  weekId: string,
+): Promise<{ overrides: Record<string, boolean> }> {
+  return request(`/api/checklist/${encodeURIComponent(weekId)}/upload-overrides`);
+}
+
+export function saveUploadOverride(
+  weekId: string,
+  rowId: string,
+  uploaded: boolean,
+): Promise<{ ok: boolean }> {
+  return request(`/api/checklist/${encodeURIComponent(weekId)}/upload-overrides`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rowId, uploaded }),
+  });
+}

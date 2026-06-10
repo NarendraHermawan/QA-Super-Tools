@@ -50,6 +50,16 @@ async function initSchema(): Promise<void> {
       PRIMARY KEY (week_id, check_date, row_id)
     )
   `;
+
+  await db`
+    CREATE TABLE IF NOT EXISTS cdn_upload_overrides (
+      week_id TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      uploaded BOOLEAN NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (week_id, row_id)
+    )
+  `;
 }
 
 export function resetSchemaReadyForTests(): void {

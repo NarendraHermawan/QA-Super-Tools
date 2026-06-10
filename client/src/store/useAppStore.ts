@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { CanonicalPlacement, ConfirmedBug, SubWeek } from '../types';
+import type { UploadOverrides } from '../utils/uploadOverrides';
 
 interface AppState {
   selectedWeek: SubWeek | null;
@@ -8,6 +9,8 @@ interface AppState {
   includeCraftland: boolean;
   checkedRowIds: Set<string>;
   confirmedBugs: ConfirmedBug[];
+  uploadOverridesWeekId: string | null;
+  uploadOverrides: UploadOverrides;
   checklistWeekId: string | null;
   checklistByDate: Record<string, string[]>;
   setSelectedWeek: (week: SubWeek | null) => void;
@@ -25,6 +28,8 @@ interface AppState {
   toggleChecked: (rowId: string) => void;
   setConfirmedBugs: (bugs: ConfirmedBug[]) => void;
   confirmBug: (bug: ConfirmedBug) => void;
+  setUploadOverridesState: (weekId: string, overrides: UploadOverrides) => void;
+  setUploadOverride: (rowId: string, uploaded: boolean) => void;
   resetSession: () => void;
 }
 
@@ -35,6 +40,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   includeCraftland: false,
   checkedRowIds: new Set<string>(),
   confirmedBugs: [],
+  uploadOverridesWeekId: null,
+  uploadOverrides: {},
   checklistWeekId: null,
   checklistByDate: {},
   setSelectedWeek: (week) => set({ selectedWeek: week }),
@@ -86,6 +93,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (existing.some((item) => item.id === bug.id)) return;
     set({ confirmedBugs: [...existing, bug] });
   },
+  setUploadOverridesState: (weekId, overrides) =>
+    set({ uploadOverridesWeekId: weekId, uploadOverrides: overrides }),
+  setUploadOverride: (rowId, uploaded) =>
+    set({
+      uploadOverrides: {
+        ...get().uploadOverrides,
+        [rowId]: uploaded,
+      },
+    }),
   resetSession: () =>
     set({
       selectedWeek: null,
@@ -94,6 +110,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       includeCraftland: false,
       checkedRowIds: new Set(),
       confirmedBugs: [],
+      uploadOverridesWeekId: null,
+      uploadOverrides: {},
       checklistWeekId: null,
       checklistByDate: {},
     }),

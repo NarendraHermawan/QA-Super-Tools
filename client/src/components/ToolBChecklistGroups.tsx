@@ -1,7 +1,6 @@
-import { BugRowActions } from './BugControls';
 import { CdnHealthIndicator } from './CdnHealthIndicator';
 import { CdnUploadButton } from './CdnUploadButton';
-import type { BannerRow, ChecklistGroup, ConfirmedBug } from '../types';
+import type { BannerRow, ChecklistGroup } from '../types';
 import { groupTitle, isSingleDayBanner } from '../utils/checklist';
 import { StatusBadge } from './ui/StatusBadge';
 
@@ -22,30 +21,23 @@ interface Props {
   };
   flatRows?: BannerRow[];
   flatTitle?: string;
-  activeDate: string;
   checkedRowIds: Set<string>;
   brokenRows: Set<string>;
-  confirmedBugs: ConfirmedBug[];
   onToggleChecked: (rowId: string) => void;
   onBroken: (rowId: string) => void;
-  onConfirmBug: (bug: ConfirmedBug) => void;
 }
 
 function renderRow(
   row: BannerRow,
   group: ChecklistGroup | 'all',
-  activeDate: string,
   checkedRowIds: Set<string>,
   brokenRows: Set<string>,
-  confirmedBugs: ConfirmedBug[],
   onToggleChecked: (rowId: string) => void,
   onBroken: (rowId: string) => void,
-  onConfirmBug: (bug: ConfirmedBug) => void,
 ) {
   const checked = checkedRowIds.has(row.id);
   const singleDay = isSingleDayBanner(row);
   const isBroken = brokenRows.has(row.id);
-  const isConfirmed = confirmedBugs.some((b) => b.id === row.id);
   return (
     <tr
       key={`${group}-${row.id}`}
@@ -84,16 +76,6 @@ function renderRow(
             onBroken={() => onBroken(row.id)}
           />
           <CdnUploadButton cdnUrl={row.cdnUrl} cdnLink={row.cdnLink} />
-          <BugRowActions
-            onConfirm={onConfirmBug}
-            rowId={row.id}
-            eventName={row.displayName}
-            placement={row.placement}
-            cdnUrl={row.cdnUrl}
-            date={activeDate}
-            isBroken={isBroken}
-            isConfirmed={isConfirmed}
-          />
         </div>
       </td>
       <td className="text-2xs tabular-nums text-ink-secondary">
@@ -120,13 +102,10 @@ export function ToolBChecklistGroups({
   grouped,
   flatRows,
   flatTitle = 'All week',
-  activeDate,
   checkedRowIds,
   brokenRows,
-  confirmedBugs,
   onToggleChecked,
   onBroken,
-  onConfirmBug,
 }: Props) {
   if (flatRows) {
     if (flatRows.length === 0) return null;
@@ -158,13 +137,10 @@ export function ToolBChecklistGroups({
                 renderRow(
                   row,
                   'all',
-                  activeDate,
                   checkedRowIds,
                   brokenRows,
-                  confirmedBugs,
                   onToggleChecked,
                   onBroken,
-                  onConfirmBug,
                 ),
               )}
             </tbody>
@@ -209,13 +185,10 @@ export function ToolBChecklistGroups({
                 renderRow(
                   row,
                   group,
-                  activeDate,
                   checkedRowIds,
                   brokenRows,
-                  confirmedBugs,
                   onToggleChecked,
                   onBroken,
-                  onConfirmBug,
                 ),
               )}
             </tbody>

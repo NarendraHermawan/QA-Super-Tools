@@ -1,6 +1,10 @@
 import type { BannerRow, CanonicalPlacement } from '../types';
 import { PLACEMENTS } from '../types';
 import { overlapsDate, sameCalendarDay } from './date';
+import {
+  effectiveCdnUploaded,
+  type UploadOverrides,
+} from './uploadOverrides';
 
 export const CRAFTLAND_PLACEMENT: CanonicalPlacement = 'Craftland';
 
@@ -27,6 +31,7 @@ export interface ViewFilterOptions {
   includeUploaded?: boolean;
   viewAllWeek?: boolean;
   selectedPlacements: CanonicalPlacement[];
+  uploadOverrides?: UploadOverrides;
 }
 
 export function applyToolAFilters(
@@ -36,6 +41,7 @@ export function applyToolAFilters(
     includeUploaded = false,
     viewAllWeek = false,
     selectedPlacements,
+    uploadOverrides = {},
   }: ViewFilterOptions,
 ): BannerRow[] {
   let result = viewAllWeek
@@ -44,7 +50,9 @@ export function applyToolAFilters(
         overlapsDate(row.startTime, row.endTime, activeDate),
       );
   if (!includeUploaded) {
-    result = result.filter((row) => !row.cdnUploaded);
+    result = result.filter(
+      (row) => !effectiveCdnUploaded(row, uploadOverrides),
+    );
   }
   if (selectedPlacements.length > 0) {
     result = result.filter((row) =>
@@ -74,19 +82,23 @@ export function computeCdnMetrics(
   activeDate: string,
   viewAllWeek = false,
   weekRange?: { start: string; end: string },
+  uploadOverrides: UploadOverrides = {},
 ): CdnMetrics {
+  const isMissing = (row: BannerRow) =>
+    !effectiveCdnUploaded(row, uploadOverrides);
+
   const goLiveDay = viewAllWeek && weekRange
     ? scopeRows.filter((r) => {
-        if (r.cdnUploaded || !r.startTime) return false;
+        if (!isMissing(r) || !r.startTime) return false;
         const start = r.startTime.slice(0, 10);
         return start >= weekRange.start && start <= weekRange.end;
       }).length
     : scopeRows.filter(
-        (r) => !r.cdnUploaded && sameCalendarDay(r.startTime, activeDate),
+        (r) => isMissing(r) && sameCalendarDay(r.startTime, activeDate),
       ).length;
 
   return {
-    missingWeek: scopeRows.filter((r) => !r.cdnUploaded).length,
+    missingWeek: scopeRows.filter(isMissing).length,
     goLiveDay,
     rowsShown: filteredRows.length,
   };
