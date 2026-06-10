@@ -17,6 +17,8 @@ import { clearClientCdnCheckCache } from '../utils/cdnCheckCache';
 import { defaultDateForWeek, isWeekViewAll } from '../utils/date';
 import {
   applyToolCSplashFilters,
+  applySplashAssetTypeFilter,
+  applySplashDayFilter,
   countSplashMetrics,
 } from '../utils/splashFilters';
 import { toolCSectionForRecord } from '../utils/splashUploadOverrides';
@@ -34,6 +36,9 @@ export function ToolC() {
   const uploadOverrides = useSplashStore((s) => s.uploadOverrides);
   const setUploadOverridesState = useSplashStore((s) => s.setUploadOverridesState);
   const setUploadOverride = useSplashStore((s) => s.setUploadOverride);
+  const uploadOverridesWeekId = useSplashStore((s) => s.uploadOverridesWeekId);
+  const setWeekDataCache = useSplashStore((s) => s.setWeekDataCache);
+  const clearWeekDataCache = useSplashStore((s) => s.clearWeekDataCache);
 
   const [records, setRecords] = useState<SplashRecord[]>([]);
   const [days, setDays] = useState<string[]>([]);
@@ -61,28 +66,47 @@ export function ToolC() {
       return;
     }
 
-    setLoading(true);
-    Promise.all([
-      fetchSplashWeek(selectedWeek.id),
-      fetchSplashUploadOverrides(selectedWeek.id),
-    ])
-      .then(([data, overrideData]) => {
-        setRecords(data.records);
-        setDays(data.days);
+    const cached = useSplashStore.getState().weekDataCache;
+    const hit =
+      cached?.weekId === selectedWeek.id ? cached : null;
+
+    if (hit) {
+      setRecords(hit.records);
+      setDays(hit.days);
+      setLoading(false);
+      setError('');
+    } else {
+      setLoading(true);
+      fetchSplashWeek(selectedWeek.id)
+        .then((data) => {
+          setWeekDataCache({
+            weekId: selectedWeek.id,
+            records: data.records,
+            days: data.days,
+          });
+          setRecords(data.records);
+          setDays(data.days);
+          if (!useSplashStore.getState().selectedDate) {
+            setSelectedDate(
+              defaultDateForWeek(data.week.start, data.week.end),
+            );
+          }
+        })
+        .catch((err: Error) => setError(err.message))
+        .finally(() => setLoading(false));
+    }
+  }, [selectedWeek, setWeekDataCache, setSelectedDate, navigate]);
+
+  useEffect(() => {
+    if (!selectedWeek) return;
+    if (uploadOverridesWeekId === selectedWeek.id) return;
+
+    fetchSplashUploadOverrides(selectedWeek.id)
+      .then((overrideData) => {
         setUploadOverridesState(selectedWeek.id, overrideData.overrides);
-        if (!selectedDate) {
-          setSelectedDate(defaultDateForWeek(data.week.start, data.week.end));
-        }
       })
-      .catch((err: Error) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [
-    selectedWeek,
-    selectedDate,
-    setSelectedDate,
-    setUploadOverridesState,
-    navigate,
-  ]);
+      .catch((err: Error) => setError(err.message));
+  }, [selectedWeek, uploadOverridesWeekId, setUploadOverridesState]);
 
   const filtered = useMemo(
     () =>
@@ -120,9 +144,19 @@ export function ToolC() {
     return { ready, assetNotReady, needsReview, uploaded };
   }, [filtered, uploadOverrides]);
 
+  const metricsScope = useMemo(() => {
+    let result = applySplashDayFilter(
+      records,
+      viewAllWeek ? '' : activeDate,
+      viewAllWeek,
+    );
+    result = applySplashAssetTypeFilter(result, selectedAssetTypes);
+    return result;
+  }, [records, activeDate, viewAllWeek, selectedAssetTypes]);
+
   const metrics = useMemo(
-    () => countSplashMetrics(records, filtered, uploadOverrides),
-    [records, filtered, uploadOverrides],
+    () => countSplashMetrics(metricsScope, filtered, uploadOverrides),
+    [metricsScope, filtered, uploadOverrides],
   );
 
   const handleRefresh = async () => {
@@ -131,12 +165,19 @@ export function ToolC() {
     try {
       clearClientCdnCheckCache();
       setBrokenRows(new Set());
+      clearWeekDataCache();
       await refreshSplashWeeks();
       const [data, overrideData] = await Promise.all([
         fetchSplashWeek(selectedWeek.id),
         fetchSplashUploadOverrides(selectedWeek.id),
       ]);
+      setWeekDataCache({
+        weekId: selectedWeek.id,
+        records: data.records,
+        days: data.days,
+      });
       setRecords(data.records);
+      setDays(data.days);
       setUploadOverridesState(selectedWeek.id, overrideData.overrides);
       setCdnHealthRefreshToken((t) => t + 1);
     } finally {
@@ -230,7 +271,7 @@ export function ToolC() {
         </Toolbar>
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Ready to upload" value={metrics.ready} />
+          <StatCard label="Ready to scheduled" value={metrics.ready} />
           <StatCard label="Asset not ready" value={metrics.assetNotReady} />
           <StatCard label="QA marked uploaded" value={metrics.marked} />
           <StatCard label="Rows shown" value={metrics.shown} />
@@ -244,7 +285,7 @@ export function ToolC() {
         ) : (
           <div className="space-y-6">
             <SplashCdnTable
-              title="Ready to Upload"
+              title="Ready to Scheduled"
               rows={sections.ready}
               uploadOverrides={uploadOverrides}
               brokenRows={brokenRows}

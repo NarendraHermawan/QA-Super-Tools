@@ -36,6 +36,7 @@ export function ToolD() {
   const selectedWeek = useSplashStore((s) => s.selectedWeek);
   const selectedDate = useSplashStore((s) => s.selectedDate);
   const setSelectedDate = useSplashStore((s) => s.setSelectedDate);
+  const setWeekDataCache = useSplashStore((s) => s.setWeekDataCache);
   const assetTypeTab = useSplashStore((s) => s.assetTypeTab);
   const setAssetTypeTab = useSplashStore((s) => s.setAssetTypeTab);
   const checklistByDate = useSplashStore((s) => s.checklistByDate);
@@ -64,18 +65,37 @@ export function ToolD() {
       return;
     }
 
+    const cached = useSplashStore.getState().weekDataCache;
+    const hit =
+      cached?.weekId === selectedWeek.id ? cached : null;
+
+    if (hit) {
+      setRecords(hit.records);
+      setDays(hit.days);
+      setLoading(false);
+      setError('');
+      return;
+    }
+
     setLoading(true);
     fetchSplashWeek(selectedWeek.id)
       .then((data) => {
+        setWeekDataCache({
+          weekId: selectedWeek.id,
+          records: data.records,
+          days: data.days,
+        });
         setRecords(data.records);
         setDays(data.days);
-        if (!selectedDate) {
-          setSelectedDate(defaultDateForWeek(data.week.start, data.week.end));
+        if (!useSplashStore.getState().selectedDate) {
+          setSelectedDate(
+            defaultDateForWeek(data.week.start, data.week.end),
+          );
         }
       })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [selectedWeek, selectedDate, setSelectedDate, navigate]);
+  }, [selectedWeek, setWeekDataCache, setSelectedDate, navigate]);
 
   useEffect(() => {
     if (!selectedWeek) return;

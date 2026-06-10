@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { SplashAssetType, SubWeek } from '../types';
+import type { SplashAssetType, SplashRecord, SubWeek } from '../types';
+
+export interface SplashWeekDataCache {
+  weekId: string;
+  records: SplashRecord[];
+  days: string[];
+}
 
 interface SplashState {
   selectedWeek: SubWeek | null;
@@ -9,6 +15,7 @@ interface SplashState {
   checklistByDate: Record<string, string[]>;
   uploadOverridesWeekId: string | null;
   uploadOverrides: Record<string, boolean>;
+  weekDataCache: SplashWeekDataCache | null;
   setSelectedWeek: (week: SubWeek | null) => void;
   setSelectedDate: (date: string | null) => void;
   setAssetTypeTab: (tab: SplashAssetType) => void;
@@ -23,6 +30,8 @@ interface SplashState {
     overrides: Record<string, boolean>,
   ) => void;
   setUploadOverride: (rowId: string, uploaded: boolean) => void;
+  setWeekDataCache: (cache: SplashWeekDataCache) => void;
+  clearWeekDataCache: () => void;
   resetSplashSession: () => void;
 }
 
@@ -34,6 +43,7 @@ export const useSplashStore = create<SplashState>((set, get) => ({
   checklistByDate: {},
   uploadOverridesWeekId: null,
   uploadOverrides: {},
+  weekDataCache: null,
   setSelectedWeek: (week) => set({ selectedWeek: week }),
   setSelectedDate: (date) => set({ selectedDate: date }),
   setAssetTypeTab: (tab) => set({ assetTypeTab: tab }),
@@ -65,6 +75,8 @@ export const useSplashStore = create<SplashState>((set, get) => ({
         [rowId]: uploaded,
       },
     }),
+  setWeekDataCache: (cache) => set({ weekDataCache: cache }),
+  clearWeekDataCache: () => set({ weekDataCache: null }),
   resetSplashSession: () =>
     set({
       selectedWeek: null,
@@ -74,5 +86,6 @@ export const useSplashStore = create<SplashState>((set, get) => ({
       checklistByDate: {},
       uploadOverridesWeekId: null,
       uploadOverrides: {},
+      weekDataCache: null,
     }),
 }));

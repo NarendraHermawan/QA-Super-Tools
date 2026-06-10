@@ -63,4 +63,13 @@ app.use(
 
 app.listen(config.port, () => {
   console.log(`FFID Banner QA server running on http://localhost:${config.port}`);
+
+  if (config.splashSheetId) {
+    void import('./services/splashService.js')
+      .then(({ loadParsedRecords }) => loadParsedRecords())
+      .then(() => console.log('Splash sheet cache warmed on startup'))
+      .catch((err) =>
+        console.warn('Splash sheet warm-up skipped:', err.message),
+      );
+  }
 });

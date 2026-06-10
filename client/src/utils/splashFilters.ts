@@ -58,18 +58,18 @@ export function applyToolCSplashFilters(
 }
 
 export function countSplashMetrics(
-  weekRecords: SplashRecord[],
+  scopeRecords: SplashRecord[],
   filteredRecords: SplashRecord[],
   uploadOverrides: SplashUploadOverrides,
 ) {
-  const ready = weekRecords.filter(
+  const ready = scopeRecords.filter(
     (r) => toolCSectionForRecord(r, uploadOverrides) === 'ready',
   ).length;
-  const assetNotReady = weekRecords.filter(
+  const assetNotReady = scopeRecords.filter(
     (r) =>
       toolCSectionForRecord(r, uploadOverrides) === 'asset_not_ready',
   ).length;
-  const marked = weekRecords.filter(
+  const marked = scopeRecords.filter(
     (r) =>
       uploadOverrides[r.id] === true && canMarkSplashUploaded(r.status),
   ).length;
