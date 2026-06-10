@@ -74,7 +74,7 @@ Answers: *"What Splash and Anno entries this sub-week still need action before t
 - Sections: **Ready to upload** (`uploaded` / Trello done), **Asset Not Ready** (`Asset not ready`), **Needs review** (unknown / `Scheduled` without URL)
 - **Mark as uploaded** available on both Ready to upload and Asset Not Ready rows
 - **Show all** reveals uploaded `Scheduled` / `DONE` rows (greyed out) — `Scheduled` rows with a CDN URL are treated as uploaded and hidden by default
-- **GoPos autofill** — exact-name lookup from latest 4 banner weeks; requires ≥2 matching banner rows with the same GoPos/Sub GoPos pair (read-only suggestions)
+- **GoPos autofill** — exact-name lookup from latest 4 banner weeks (Gacha / Luck Royale excluded); requires ≥1 matching banner row (read-only suggestions)
 - **Summarize** — same UX as Tool A: unique events for the full sub-week, **Not uploaded** / **Uploaded** filter, **Copy list** grouped by Splash / Announcement
 - **Open CDN upload**, **Mark as uploaded** overrides (`splash_upload_overrides` in Neon)
 - **Refresh sheet** re-fetches splash + banner week cache and clears CDN health cache
@@ -414,7 +414,7 @@ Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel ep
 - One data row can split into **two records** (Splash + Anno) when both sides have dates, Sort_ID, or CDN data
 - Status values (sheet → UI): `NEED TO UPDATE TRELLO` → **Asset not ready**, `TRELLO DONE` → **uploaded**, `SCHEDULED` → **Scheduled**, `DONE` → **DONE**
 - **Week scope** reuses the same 4 sub-weeks as Banner (`fetchWeeks`); records overlap a sub-week when their active period intersects it
-- **GoPos lookup** — exact event-name match against banner rows from the latest 4 CDN checklist weeks; suggests GoPos/Sub GoPos only when ≥2 banner rows agree (read-only)
+- **GoPos lookup** — exact event-name match against banner rows from the latest 4 CDN checklist weeks (**Gacha / Luck Royale excluded**); suggests GoPos/Sub GoPos when remaining rows agree (read-only)
 
 ---
 
@@ -547,7 +547,7 @@ User → /splash → pick sub-week → /tool-c
   → GET /api/splash/upload-overrides/:weekId
   → Server: splash cache → ID - Settings (B:Z + O/Q CDN cols)
   → Parse → filter by sub-week overlap (+ optional day)
-  → GoPos lookup from banner rows (exact match, ≥2 agreeing rows)
+  → GoPos lookup from banner rows (exact match, Gacha excluded, ≥1 agreeing row)
   → Summarize → client-side unique event list + copy
   → Mark uploaded → PUT /api/splash/upload-overrides/:weekId
   → Refresh → POST /api/splash/refresh (also busts banner week cache)
@@ -638,6 +638,7 @@ npm test    # server + client unit tests
 | Multi-user audit | No per-user tracking on checklist actions yet |
 | Splash tools | Require `SPLASH_SHEET_ID`; share workbook with service account; tab `ID - Settings` |
 | Splash CDN columns | O = Anno, Q = Splash; empty O with Q filled is normal — use **Splash** tab in Tool D |
+| Splash GoPos lookup | Exact banner name match; **Gacha / Luck Royale** rows excluded; ≥1 remaining row must agree |
 
 ---
 

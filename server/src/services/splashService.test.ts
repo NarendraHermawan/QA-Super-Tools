@@ -10,6 +10,7 @@ function bannerRow(
   displayName: string,
   gopos: string,
   subGopos: string,
+  placement: BannerRow['placement'] = 'Event',
 ): BannerRow {
   return {
     id: displayName,
@@ -22,13 +23,16 @@ function bannerRow(
     endTime: '2026-06-16',
     assetDone: true,
     cdnUploaded: false,
-    placement: 'Event',
+    placement,
     rowState: 'ready_to_upload',
     subWeekLabel: '3-9 Jun',
     gopos,
     subGopos,
   };
 }
+
+const fadedWheelEvent =
+  'Faded Wheel - Interactive Emote - Reverse Penalty! (909053005) (Red), Emote Multitasking (909053011)';
 
 function splashRecord(
   overrides: Partial<SplashRecord> & Pick<SplashRecord, 'id'>,
@@ -87,15 +91,24 @@ describe('recordOverlapsMonth', () => {
 });
 
 describe('lookupGopos', () => {
-  it('returns suggested when 2+ exact matches agree', () => {
-    const rows = Array.from({ length: 2 }, () =>
-      bannerRow('Super Fusion Bundle', '99', 'link-a'),
-    );
+  it('returns suggested when 1 exact match exists', () => {
+    const rows = [bannerRow('Super Fusion Bundle', '99', 'link-a')];
     const result = lookupGopos('#4 Super Fusion Bundle', rows);
     expect(result.status).toBe('suggested');
     if (result.status === 'suggested') {
       expect(result.gopos).toBe('99');
       expect(result.subGopos).toBe('link-a');
+      expect(result.matchCount).toBe(1);
+    }
+  });
+
+  it('returns suggested when multiple exact matches agree', () => {
+    const rows = Array.from({ length: 2 }, () =>
+      bannerRow('Super Fusion Bundle', '99', 'link-a'),
+    );
+    const result = lookupGopos('Super Fusion Bundle', rows);
+    expect(result.status).toBe('suggested');
+    if (result.status === 'suggested') {
       expect(result.matchCount).toBe(2);
     }
   });
@@ -109,8 +122,8 @@ describe('lookupGopos', () => {
     expect(result.status).toBe('not_found');
   });
 
-  it('returns not_found when fewer than 2 matches', () => {
-    const rows = [bannerRow('Super Fusion Bundle', '99', 'a')];
+  it('returns not_found when no exact matches', () => {
+    const rows = [bannerRow('Other Event', '99', 'a')];
     const result = lookupGopos('Super Fusion Bundle', rows);
     expect(result.status).toBe('not_found');
   });
@@ -122,5 +135,20 @@ describe('lookupGopos', () => {
     ];
     const result = lookupGopos('Super Fusion Bundle', rows);
     expect(result.status).toBe('not_found');
+  });
+
+  it('ignores Gacha rows when other placements agree on GoPos', () => {
+    const rows = [
+      bannerRow(fadedWheelEvent, '15', 'V2_chestId_19', 'Shopping Mall'),
+      bannerRow(fadedWheelEvent, '15', 'V2_chestId_19', 'Slide Banner'),
+      bannerRow(fadedWheelEvent, '19', 'Faded Wheel', 'Gacha / Luck Royale'),
+    ];
+    const result = lookupGopos(`#16 ${fadedWheelEvent}`, rows);
+    expect(result.status).toBe('suggested');
+    if (result.status === 'suggested') {
+      expect(result.gopos).toBe('15');
+      expect(result.subGopos).toBe('V2_chestId_19');
+      expect(result.matchCount).toBe(2);
+    }
   });
 });

@@ -16,12 +16,22 @@ import { WIB } from '../parsing/dateUtils.js';
 import { getAllBannerRows } from './dataService.js';
 import type {
   BannerRow,
+  CanonicalPlacement,
   GoposLookupResult,
   SplashMonthDetailResponse,
   SplashMonthSummary,
   SplashMonthsResponse,
   SplashRecord,
 } from '../types.js';
+
+/** Gacha rows often reuse event names but use placement-specific GoPos — skip for splash lookup. */
+const GOPOS_LOOKUP_EXCLUDED_PLACEMENTS = new Set<CanonicalPlacement>([
+  'Gacha / Luck Royale',
+]);
+
+function isGoposLookupEligible(row: BannerRow): boolean {
+  return !GOPOS_LOOKUP_EXCLUDED_PLACEMENTS.has(row.placement);
+}
 
 interface BannerCandidate {
   gopos: string;
@@ -54,6 +64,7 @@ export class BannerLookupIndex {
 
   constructor(bannerRows: BannerRow[]) {
     for (const row of bannerRows) {
+      if (!isGoposLookupEligible(row)) continue;
       const name = bannerEventName(row).trim().toLowerCase();
       if (!name) continue;
       const candidate = toCandidate(row);
@@ -69,7 +80,7 @@ export class BannerLookupIndex {
     if (!normalized) return { status: 'not_found' };
 
     const matches = this.exactByName.get(normalized) ?? [];
-    if (matches.length < 2 || !allAgree(matches)) {
+    if (matches.length < 1 || !allAgree(matches)) {
       return { status: 'not_found' };
     }
 
