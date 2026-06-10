@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getCdnCheckCache, setCdnCheckCache } from '../cdnCheckCache.js';
-import { resolveCdnOpsUploadUrl } from '../parsing/cdnOpsUpload.js';
+import { resolveCdnOpsUploadUrlSync } from '../parsing/cdnOpsUpload.js';
 import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
 import { config } from '../config.js';
 import { checklistRouter } from './checklist.js';
@@ -71,7 +71,7 @@ apiRouter.get('/cdnops-upload-url', async (req, res, next) => {
       return;
     }
 
-    const uploadUrl = await resolveCdnOpsUploadUrl(rawUrl, config.cdnBaseUrl);
+    const uploadUrl = resolveCdnOpsUploadUrlSync(rawUrl, config.cdnBaseUrl);
     if (!uploadUrl) {
       res.status(400).json({ error: 'Could not derive CDN Ops upload path' });
       return;
