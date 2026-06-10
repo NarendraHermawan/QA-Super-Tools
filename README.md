@@ -66,14 +66,18 @@ Answers: *"When I open the game right now, what should I see — and what should
 Answers: *"What Splash and Anno entries this sub-week still need action before they go live?"*
 
 - Reads from **`ID - Settings`** in a separate workbook (`SPLASH_SHEET_ID`)
-- **Same sub-week scope as Banner tools** (latest 4 weeks from the CDN checklist, e.g. `10–16 Jun`)
+- **Same sub-week scope as Banner tools** (latest 4 sub-weeks from the CDN checklist)
 - Week + day filter from `/splash` entry point; overlapping entries stay visible when you pick a day
+- **Placement filter:** **Splash** / **Announcement** chips (same pattern as Tool A placement filter)
 - Table columns: **Event** (name + Splash/Anno tag), **Status**, **CDN path** (col **O** = Anno, col **Q** = Splash), **GoPos / Sub GoPos**, **Active period**, **CDN health**
-- Sections: **Ready to upload** (`TRELLO DONE`), **Blocked** (`NEED TO UPDATE TRELLO`), **Needs review** (unknown / `SCHEDULED` without URL)
-- **Show all** reveals uploaded `SCHEDULED` / `DONE` rows (greyed out) — `SCHEDULED` rows with a CDN URL are treated as uploaded and hidden by default
-- **GoPos autofill** — cross-sheet lookup from latest 4 banner weeks (read-only suggestions)
+- Status labels: **Asset not ready**, **uploaded**, **Scheduled**, **DONE**
+- Sections: **Ready to upload** (`uploaded` / Trello done), **Asset Not Ready** (`Asset not ready`), **Needs review** (unknown / `Scheduled` without URL)
+- **Mark as uploaded** available on both Ready to upload and Asset Not Ready rows
+- **Show all** reveals uploaded `Scheduled` / `DONE` rows (greyed out) — `Scheduled` rows with a CDN URL are treated as uploaded and hidden by default
+- **GoPos autofill** — exact-name lookup from latest 4 banner weeks; requires ≥2 matching banner rows with the same GoPos/Sub GoPos pair (read-only suggestions)
+- **Summarize** — same UX as Tool A: unique events for the full sub-week, **Not uploaded** / **Uploaded** filter, **Copy list** grouped by Splash / Announcement
 - **Open CDN upload**, **Mark as uploaded** overrides (`splash_upload_overrides` in Neon)
-- **Refresh sheet** re-fetches splash data and clears CDN health cache
+- **Refresh sheet** re-fetches splash + banner week cache and clears CDN health cache
 
 ### Tool D — Splash & Anno In-Game QA (`/tool-d`)
 
@@ -93,7 +97,7 @@ Answers: *"What Splash and Anno banners should appear, disappear, or stay active
 | `/banner` | Banner scope — week or date, then Tool A / B |
 | `/splash` | Splash scope — same sub-week picker as Banner, then Tool C / D |
 
-**Banner (`/banner`)** and **Splash (`/splash`)** both use the same sub-week list (e.g. `20–26 May`, `27 May–02 Jun`, `3–9 Jun`, `10–16 Jun`) plus optional date-picker.
+**Banner (`/banner`)** and **Splash (`/splash`)** both use the same sub-week list (e.g. `27 May–2 Jun`, `3–9 Jun`, `10–16 Jun`, `17–24 Jun`) plus optional date-picker. Each entry page has a **Refresh weeks** button that busts the server cache and reloads the dropdown (use this after a new sheet tab is added — **Refresh sheet** inside Tool A/C only reloads row data for the already-selected week).
 
 `SPLASH_SHEET_ID` is **optional** — if unset, splash API returns `503` and banner tools are unaffected.
 
@@ -198,7 +202,7 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 | `GET` | `/api/splash/weeks` | Same latest 4 sub-weeks as banner (from CDN checklist) |
 | `GET` | `/api/splash/week/:weekId` | Splash/Anno records overlapping sub-week; optional `?date=` day filter |
 | `GET` | `/api/splash/week-for-date/:date` | Resolve sub-week for an ISO date |
-| `POST` | `/api/splash/refresh` | Bust splash sheet cache |
+| `POST` | `/api/splash/refresh` | Bust splash + banner week cache, re-fetch weeks |
 | `GET` | `/api/splash/upload-overrides/:weekId` | Tool C QA upload overrides |
 | `PUT` | `/api/splash/upload-overrides/:weekId` | Set `{ rowId, uploaded }` override |
 | `GET` | `/api/splash/checklist/:weekId` | Tool D checklist state (`byDate`) |
@@ -324,11 +328,12 @@ The real master sheet structure differs from a simplified 6-column model. The pa
   - En-dash `–` and hyphen `-`
   - Optional 2-digit year (`3 – 16 Jun 26`)
   - Prefixes: `Biweekly`, `Weekly`, `EX Weekly`
-  - Annotations: `(Before Patch)`, `(After Patch)`, `(lebaran)`
+  - Annotations: `(Before Patch)`, `(After Patch)`, `Before Patch`, `After Patch`, `(lebaran)`
   - English + Indonesian months (`Des`, `Mei`)
   - Cross-month ranges (`29 Nov - 05 Des`, `Biweekly 24 Jan – 06 Feb`)
+  - Cross-month sub-week labels where the month token is the **end** month (e.g. `27 - 2 Jun` → 27 May – 2 Jun)
 
-Tabs are sorted by parsed **end date** descending; the most recent tabs are fetched (up to 6) to ensure ≥4 sub-weeks are available.
+Tabs near today are fetched, plus the globally newest relevant week tabs (deduped). Generic single-week tabs without a year or patch suffix (e.g. `7 - 13 Jun`) are ignored in favour of biweekly container tabs (`3 – 16 Jun 26`) and explicit single-week tabs (e.g. `17 – 24 Jun 26 Before Patch`).
 
 ### Sub-week model (critical)
 
@@ -343,15 +348,17 @@ Overview          | 10 - 16 Jun   ← sub-week block 2
   [data rows...]
 ```
 
-The user-facing "week" is the **sub-block** (col B label), not the whole tab. The API exposes the latest 4 distinct sub-week ranges.
+The user-facing "week" is the **sub-block** (col B label), not the whole tab. The API exposes the latest 4 distinct sub-week ranges (rolling window — a new tab like `17 – 24 Jun` drops the oldest week).
 
 Sub-week labels without a year inherit the year from the containing tab name.
+
+**Single-week tabs** (e.g. `17 – 24 Jun 26 Before Patch`) may omit the date in column B on section headers — the parser infers the sub-week from the tab name. If the grid has no section headers yet, the tab range itself is registered as one sub-week.
 
 ### Section detection
 
 A section starts when:
 - Col A matches a known section name (via alias map)
-- Col B is a week-range label (e.g. `10 - 16 Jun`)
+- Col B is a week-range label (e.g. `10 - 16 Jun`), **or** col B is empty on a single-week tab (date inferred from tab name)
 
 The **next row** is the column header row. Columns are mapped **by header name** (not fixed letters).
 
@@ -405,9 +412,9 @@ Excel serial numbers (e.g. `46176.416666666664`) are converted from the Excel ep
 - **CDN paths:** col **O** (`Anno Banner`) and col **Q** (`Splash Banner`) — also fetched as dedicated single-column ranges because Google Sheets omits trailing empty cells in wide `B:Z` rows, which would otherwise drop URLs in Q
 - Header row detected by `Index`/`Desc` + `Status`; columns mapped **by header name** (not fixed letters)
 - One data row can split into **two records** (Splash + Anno) when both sides have dates, Sort_ID, or CDN data
-- Status values: `TRELLO DONE`, `NEED TO UPDATE TRELLO`, `SCHEDULED`, `DONE`
+- Status values (sheet → UI): `NEED TO UPDATE TRELLO` → **Asset not ready**, `TRELLO DONE` → **uploaded**, `SCHEDULED` → **Scheduled**, `DONE` → **DONE**
 - **Week scope** reuses the same 4 sub-weeks as Banner (`fetchWeeks`); records overlap a sub-week when their active period intersects it
-- **GoPos lookup** fuzzy-matches splash event names against banner rows from the latest 4 CDN checklist weeks (read-only suggestions)
+- **GoPos lookup** — exact event-name match against banner rows from the latest 4 CDN checklist weeks; suggests GoPos/Sub GoPos only when ≥2 banner rows agree (read-only)
 
 ---
 
@@ -444,7 +451,9 @@ Overrides are keyed by `week_id` + `row_id` and stored in Neon (`cdn_upload_over
 
 ## Summarize unique events
 
-**Summarize** (Tool A header) opens a modal for the **full selected sub-week** — independent of day/placement filters on the main table.
+**Summarize** (Tool A and Tool C headers) opens a modal for the **full selected sub-week** — independent of day/placement filters on the main table.
+
+### Banner (Tool A)
 
 | Control | Behavior |
 |---|---|
@@ -452,6 +461,14 @@ Overrides are keyed by `week_id` + `row_id` and stored in Neon (`cdn_upload_over
 | **Uploaded** | Unique events with at least one uploaded asset |
 | **Include Craftland** | Off by default; toggles Craftland map rows into the list |
 | **Copy list** | Clipboard report with header, numbered events, multiline names, assets grouped by placement |
+
+### Splash & Anno (Tool C)
+
+| Control | Behavior |
+|---|---|
+| **Not uploaded** (default) | Unique event names with at least one non-uploaded Splash/Anno asset |
+| **Uploaded** | Unique events with at least one uploaded asset |
+| **Copy list** | Same format as banner; assets grouped by **Splash** / **Announcement** |
 
 Example copy format:
 
@@ -530,9 +547,10 @@ User → /splash → pick sub-week → /tool-c
   → GET /api/splash/upload-overrides/:weekId
   → Server: splash cache → ID - Settings (B:Z + O/Q CDN cols)
   → Parse → filter by sub-week overlap (+ optional day)
-  → GoPos lookup from banner rows
+  → GoPos lookup from banner rows (exact match, ≥2 agreeing rows)
+  → Summarize → client-side unique event list + copy
   → Mark uploaded → PUT /api/splash/upload-overrides/:weekId
-  → Refresh → POST /api/splash/refresh
+  → Refresh → POST /api/splash/refresh (also busts banner week cache)
 ```
 
 ### Splash in-game QA (Tool D)
@@ -607,12 +625,13 @@ npm test    # server + client unit tests
 | Topic | Decision |
 |---|---|
 | CDN base URL | Constant `https://dl.dir.freefiremobile.com/common/`; OB version is in the path |
-| "Latest 4 weeks" | 4 most-recent distinct **sub-week** ranges across recent tabs |
+| "Latest 4 weeks" | 4 most-recent distinct **sub-week** ranges; rolls forward as new tabs are added |
+| Week tab formats | Biweekly containers (`3 – 16 Jun 26`) + explicit single-week tabs (`17 – 24 Jun 26 Before Patch`); generic weekly tabs without year/patch suffix ignored |
 | Non-week tabs | Ignored (`Patch Note`, `Master Copy`, etc.) |
 | Cross-week carry-over | Tool B shows only the selected sub-week's rows |
 | Craftland | Own placement; excluded from Summarize by default; non-URL rows skip CDN health check |
 | QA upload overrides | Overlay on sheet `CDN Uploaded`; not written back to Google Sheets |
-| Summarize scope | Full sub-week (ignores Tool A day/placement filters) |
+| Summarize scope | Full sub-week (ignores Tool A/C day/placement filters) |
 | Checklist + overrides | Neon when configured; in-memory fallback otherwise |
 | Write-back to sheet | Not supported (read-only) |
 | Authentication | Single shared admin account (no Google Sign-In yet) |
