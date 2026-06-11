@@ -35,9 +35,11 @@ function assetLabel(row: BannerRow): string | null {
   if (row.assetTag) return row.assetTag;
   const cdn = row.cdnUrl ?? row.cdnLink;
   if (!cdn) return null;
-  const parts = cdn.split('/');
-  const filename = parts[parts.length - 1];
-  return filename || null;
+  const parts = cdn.split('/').filter(Boolean);
+  if (parts.length >= 2) {
+    return parts[parts.length - 2] ?? null;
+  }
+  return parts[parts.length - 1] ?? null;
 }
 
 function uniqueAssets(rows: BannerRow[]): EventSummaryAsset[] {
@@ -47,7 +49,8 @@ function uniqueAssets(rows: BannerRow[]): EventSummaryAsset[] {
   for (const row of rows) {
     const tag = assetLabel(row);
     if (!tag) continue;
-    const key = `${row.placement}::${tag}`;
+    const cdn = row.cdnUrl ?? row.cdnLink ?? '';
+    const key = `${row.placement}::${tag}::${cdn}`;
     if (seen.has(key)) continue;
     seen.add(key);
     result.push({ tag, placement: row.placement });

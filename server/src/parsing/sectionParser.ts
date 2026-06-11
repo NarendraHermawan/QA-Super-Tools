@@ -243,6 +243,27 @@ export function groupByPlacement(
   return grouped;
 }
 
+/** Same event name on different days often uses different CDN folders — tag by go-live date. */
+export function disambiguateDuplicateEventTags(rows: BannerRow[]): void {
+  const groups = new Map<string, BannerRow[]>();
+
+  for (const row of rows) {
+    const key = `${row.placement}\0${row.displayName.trim().toLowerCase()}`;
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+
+  for (const group of groups.values()) {
+    if (group.length <= 1) continue;
+    for (const row of group) {
+      const base = row.assetTag ?? 'Asset';
+      const day = row.startTime?.slice(0, 10);
+      row.assetTag = day ? `${base} · ${day}` : base;
+    }
+  }
+}
+
 export function buildWeekData(
   subWeek: SubWeek,
   grid: GridRow[],
@@ -251,6 +272,7 @@ export function buildWeekData(
   const allParsed = parseSheetGrid(subWeek.tabName, grid, cdnBaseUrl);
   const subWeekLabel = subWeek.id.split('::')[1];
   const filtered = allParsed.filter((row) => row.subWeekLabel === subWeekLabel);
+  disambiguateDuplicateEventTags(filtered);
   return {
     week: subWeek,
     sections: groupByPlacement(filtered),

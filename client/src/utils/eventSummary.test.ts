@@ -100,6 +100,40 @@ describe('summarizeEvents', () => {
       { tag: 'Mall background', placement: 'Shopping Mall' },
     ]);
   });
+
+  it('keeps separate assets when the same event runs on different CDN folders', () => {
+    const shopeeRows: BannerRow[] = [
+      makeRow({
+        id: 'shopee-12',
+        displayName: 'FF x ShopeePay',
+        placement: 'Event',
+        assetTag: 'Overview · 2026-06-12',
+        cdnUrl:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/120605_sopipaylagi/overview.ff_extend',
+        cdnUploaded: true,
+      }),
+      makeRow({
+        id: 'shopee-14',
+        displayName: 'FF x ShopeePay',
+        placement: 'Event',
+        assetTag: 'Overview · 2026-06-14',
+        cdnUrl:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/140605_sopipaylagi/overview.ff_extend',
+        cdnUploaded: false,
+      }),
+    ];
+
+    const notUploaded = summarizeEvents(shopeeRows, {}, 'not_uploaded');
+    expect(notUploaded).toHaveLength(1);
+    expect(notUploaded[0].assets).toEqual([
+      { tag: 'Overview · 2026-06-14', placement: 'Event' },
+    ]);
+
+    const uploaded = summarizeEvents(shopeeRows, {}, 'uploaded');
+    expect(uploaded[0].assets).toEqual([
+      { tag: 'Overview · 2026-06-12', placement: 'Event' },
+    ]);
+  });
 });
 
 describe('rowsForEventSummary', () => {

@@ -76,6 +76,28 @@ function humanizeAssetStem(stem: string): string {
     .join(' ');
 }
 
+/** Event folder segment from a CDN asset URL (e.g. `120605_sopipaylagi`). */
+export function eventFolderFromCdn(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  let pathname = trimmed;
+  if (isHttpUrl(trimmed)) {
+    try {
+      pathname = new URL(trimmed).pathname;
+    } catch {
+      return null;
+    }
+  }
+
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length < 2) return null;
+  return segments[segments.length - 2] ?? null;
+}
+
 /** Short label from CDN filename when rows share the same event name (merged cells). */
 export function assetTagFromCdn(value: string | null | undefined): string | null {
   if (!value) return null;

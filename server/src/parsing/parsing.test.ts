@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assetTagFromCdn,
   cdnUrlForHealthCheck,
+  eventFolderFromCdn,
   normalizeCdnLink,
 } from './cdnLink.js';
 import {
@@ -16,7 +17,11 @@ import {
   buildSubWeeksFromTab,
   getLatestSubWeeks,
 } from './weekModel.js';
-import { buildWeekData, parseSheetGrid } from './sectionParser.js';
+import {
+  buildWeekData,
+  disambiguateDuplicateEventTags,
+  parseSheetGrid,
+} from './sectionParser.js';
 import { SAMPLE_TAB_NAME, sampleGrid } from '../fixtures/sampleGrid.js';
 
 describe('dateUtils', () => {
@@ -418,7 +423,65 @@ describe('sectionParser', () => {
   });
 });
 
+describe('disambiguateDuplicateEventTags', () => {
+  it('tags same event name on different days with go-live date', () => {
+    const rows = [
+      {
+        id: 'a',
+        namaTab: 'FF x ShopeePay',
+        displayName: 'FF x ShopeePay',
+        assetTag: 'Overview',
+        cdnLink:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/120605_sopipaylagi/overview.ff_extend',
+        cdnUrl:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/120605_sopipaylagi/overview.ff_extend',
+        startTime: '2026-06-12 00:00:00',
+        endTime: '2026-06-12 23:59:59',
+        assetDone: true,
+        cdnUploaded: true,
+        placement: 'Event' as const,
+        rowState: 'uploaded' as const,
+        subWeekLabel: '10 - 16 Jun',
+        gopos: null,
+        subGopos: null,
+      },
+      {
+        id: 'b',
+        namaTab: 'FF x ShopeePay',
+        displayName: 'FF x ShopeePay',
+        assetTag: 'Overview',
+        cdnLink:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/140605_sopipaylagi/overview.ff_extend',
+        cdnUrl:
+          'https://dl.dir.freefiremobile.com/common/OB53/ID/140605_sopipaylagi/overview.ff_extend',
+        startTime: '2026-06-14 00:00:00',
+        endTime: '2026-06-14 23:59:59',
+        assetDone: true,
+        cdnUploaded: false,
+        placement: 'Event' as const,
+        rowState: 'ready_to_upload' as const,
+        subWeekLabel: '10 - 16 Jun',
+        gopos: null,
+        subGopos: null,
+      },
+    ];
+
+    disambiguateDuplicateEventTags(rows);
+
+    expect(rows[0].assetTag).toBe('Overview · 2026-06-12');
+    expect(rows[1].assetTag).toBe('Overview · 2026-06-14');
+  });
+});
+
 describe('cdnLink', () => {
+  it('extracts event folder from CDN asset URL', () => {
+    expect(
+      eventFolderFromCdn(
+        'https://dl.dir.freefiremobile.com/common/OB53/ID/140605_sopipaylagi/overview.ff_extend',
+      ),
+    ).toBe('140605_sopipaylagi');
+  });
+
   it('derives asset tags from CDN filenames for merged event rows', () => {
     expect(
       assetTagFromCdn(
