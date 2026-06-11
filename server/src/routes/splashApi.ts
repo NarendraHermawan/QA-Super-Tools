@@ -1,4 +1,5 @@
 import { Router, type NextFunction, type Request, type Response } from 'express';
+import { config } from '../config.js';
 import {
   getSplashChecklistState,
   getSplashUploadOverrides,
@@ -29,6 +30,12 @@ function requireSplashConfig(
 }
 
 splashRouter.use(requireSplashConfig);
+
+splashRouter.get('/sheet-url', (_req, res) => {
+  res.json({
+    url: `https://docs.google.com/spreadsheets/d/${config.splashSheetId}/edit`,
+  });
+});
 
 splashRouter.get('/weeks', async (_req, res, next) => {
   try {

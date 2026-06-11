@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 
 const NAV = [
   { path: '/banner', label: 'Banner', match: ['/banner', '/tool-a', '/tool-b'] },
-  { path: '/splash', label: 'Splash', match: ['/splash', '/tool-c', '/tool-d'] },
+  { path: '/splash', label: 'Splash', match: ['/splash', '/tool-c', '/tool-d', '/tool-e'] },
 ] as const;
 
 function isActive(pathname: string, prefixes: readonly string[]): boolean {

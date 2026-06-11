@@ -18,6 +18,7 @@ Web application for the Free Fire Indonesia LiveOps QA team to automate weekly *
 | Team access control | Simple **admin login** (username/password session) |
 | Splash/Anno tracked in a separate workbook | **Tool C / D** — same sub-week UX as Banner; reads `ID - Settings` (`SPLASH_SHEET_ID`) |
 | Splash CDN in cols O/Q dropped by sparse sheet rows | Dedicated **O + Q column fetch** merged into each row (Google trims trailing empties in `B:Z`) |
+| Manual CDN Ops upload for Splash/Anno | **Tool E** — drop file → rename → Playwright upload → copy CDN path (local Docker + office WiFi) |
 
 ## Tools
 
@@ -89,13 +90,26 @@ Answers: *"What Splash and Anno banners should appear, disappear, or stay active
 - WIB clock + “goes live soon” flags; GoPos display with sheet / Suggested / Not found
 - Checklist persistence in `splash_checks` (Neon) with still-active carry-over
 
+### Tool E — Splash & Anno Auto Upload (`/tool-e`)
+
+Answers: *"I downloaded the asset from Notion — upload it to CDN Ops and give me the CDN path."*
+
+- **Local Docker / dev worker only** — not available on Render (proxy returns 503 without worker)
+- Reads the same splash week cache as Tool C/D; shows rows where **col Z (Notion/Trello URL)** is filled
+- Per-row: **Open Notion**, **GoPos / Sub GoPos** (with **Copy** for suggested values), **CDN health**, drop zone
+- Drop or browse an image → worker renames to 10-char token → Playwright uploads to `cdnops.jingle.cn/upload/{OB}/ID/splash` → displays full CDN URL + **Copy**
+- **Retry** clears the row (confirmation dialog) and deletes the Neon upload record
+- Header actions (same pattern as Tool C): **Refresh sheet**, **Open sheet** (splash workbook), **Open CDN folder**
+- Upload history persisted in `auto_upload_log` (Neon); survives page refresh
+- Requires **office WiFi** for CDN Ops; requires **CDN OPS login** (see [Tool E setup](#tool-e-auto-upload-local-only))
+
 ### Landing & entry points
 
 | Route | Purpose |
 |---|---|
 | `/` | Tool selector — Banner QA vs Splash & Anno QA |
 | `/banner` | Banner scope — week or date, then Tool A / B |
-| `/splash` | Splash scope — same sub-week picker as Banner, then Tool C / D |
+| `/splash` | Splash scope — same sub-week picker as Banner, then Tool C / D / E |
 
 **Banner (`/banner`)** and **Splash (`/splash`)** both use the same sub-week list (e.g. `27 May–2 Jun`, `3–9 Jun`, `10–16 Jun`, `17–24 Jun`) plus optional date-picker. Each entry page has a **Refresh weeks** button that busts the server cache and reloads the dropdown (use this after a new sheet tab is added — **Refresh sheet** inside Tool A/C only reloads row data for the already-selected week).
 
@@ -113,30 +127,25 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 ┌─────────────────────────────────────────────────────────────────┐
 │  Browser (React SPA via Vite)                                   │
 │  - Tool selector, Banner (/banner) + Splash (/splash) entry    │
-│  - Tool A/B (banner), Tool C/D (splash & anno), Login           │
+│  - Tool A/B (banner), Tool C/D/E (splash & anno), Login         │
 │  - CDN health: <img> + cached server HEAD fallback              │
 │  - Summarize modal, CDN Ops upload links, upload overrides UI   │
 │  - Zustand: week/date filters, checklist + override state       │
 └──────────────────────────┬──────────────────────────────────────┘
                            │ /api/*  (credentials: cookie)
 ┌──────────────────────────▼──────────────────────────────────────┐
-│  Node.js + Express + TypeScript (server/)                         │
-│  - Admin session auth (signed cookie, optional)                   │
-│  - Google Sheets API (service account, read-only)                 │
-│  - Banner parsing (tabs, sub-weeks, sections, dates)              │
-│  - Splash parsing (ID - Settings, B:Z + O/Q CDN columns)        │
-│  - In-memory TTL cache (banner + splash sheet + CDN checks)       │
-│  - CDN HEAD proxy (/api/cdn-check)                                │
-│  - Checklist + overrides (/api/checklist/*, /api/splash/*)        │
+│  Node.js + Express + TypeScript (server/)  — port 3001          │
+│  - Admin session auth, Google Sheets, splash/banner parsing       │
+│  - Proxies /api/auto-upload/* → worker (when WORKER_URL set)    │
 └──────────┬─────────────────────────────┬────────────────────────┘
            │                             │
+           │ WORKER_URL (local Docker)   │
            ▼                             ▼
-  Google Sheets API v4          Neon PostgreSQL (optional)
-  - [FFID] Weekly CDN Checklist (checklist_checks, cdn_upload_overrides)
-  - Splash workbook / ID - Settings (splash_checks, splash_upload_overrides)
-           │
-           ▼
-  dl.dir.freefiremobile.com (CDN asset host)
+┌──────────────────────────┐   Google Sheets API v4 + Neon PG
+│  worker/ (port 3002)     │   - checklist, overrides, auto_upload_log
+│  - Playwright + Chromium │   - dl.dir.freefiremobile.com (CDN health)
+│  - CDN Ops upload pipeline│
+└──────────────────────────┘
 ```
 
 ### Why a backend (not pure static HTML)
@@ -208,6 +217,16 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 | `GET` | `/api/splash/checklist/:weekId` | Tool D checklist state (`byDate`) |
 | `PUT` | `/api/splash/checklist/:weekId/check` | Toggle one checklist item |
 | `POST` | `/api/splash/checklist/:weekId/check-batch` | Batch mark items checked (carry-over) |
+| `GET` | `/api/splash/sheet-url` | Google Sheets URL for splash workbook |
+
+**Tool E — Auto Upload** (proxied to worker when `WORKER_URL` set; `503` on Render)
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/api/auto-upload/config?weekId=` | Worker availability + detected OB version |
+| `POST` | `/api/auto-upload/upload` | Multipart upload → Playwright CDN pipeline |
+| `GET` | `/api/auto-upload/history?weekId=` | Upload records for week (restore UI state) |
+| `DELETE` | `/api/auto-upload/history/:rowId?weekId=` | Clear row record (Retry) |
 
 ---
 
@@ -215,32 +234,23 @@ When `ADMIN_PASSWORD` is set, all app routes and API endpoints (except health + 
 
 ```
 QA-Super-Tools/
-├── package.json              # Root workspace, dev/build/test scripts
-├── render.yaml               # Render Blueprint (optional)
-├── .env.example              # Environment template
-├── .env                      # Local config (gitignored)
-├── credentials/              # Service account JSON (gitignored)
-├── client/                   # React frontend
-│   ├── src/
-│   │   ├── pages/            # ToolSelector, EntryPoint, SplashEntry, ToolA–D, Login
-│   │   ├── components/       # Banner + splash tables, filters, CDN health
-│   │   │   └── splash/       # SplashCdnTable, GoposField, AssetTypeTabs, etc.
-│   │   ├── api/              # client.ts, checklist.ts, splash.ts, auth.ts
-│   │   ├── store/            # useAppStore, useSplashStore, useAuthStore
-│   │   └── utils/            # splashFilters, splashChecklist, uploadOverrides, date
-│   └── vite.config.ts        # Dev proxy → localhost:3001
-└── server/                   # Express backend
-    ├── src/
-    │   ├── auth/             # Session token create/verify
-    │   ├── db/               # Neon client, checklist + splash repos
-    │   ├── google/           # Sheets client, splashSheetsClient (B:Z + O/Q)
-    │   ├── middleware/       # requireAuth
-    │   ├── parsing/          # Banner + splashParser (header-based columns)
-    │   ├── routes/           # api.ts, splashApi.ts, auth.ts, checklist.ts
-    │   ├── services/         # dataService, splashService, splashWeekService
-    │   ├── scripts/          # testDb.ts, migrateSplash.ts
-    │   └── fixtures/         # Test fixtures from real sheet structure
-    └── vitest.config.ts
+├── package.json              # Root workspace (client + server + worker)
+├── docker-compose.yml        # Local: web :3001 + worker :3002
+├── Dockerfile.web
+├── Dockerfile.worker
+├── start.bat / start.sh      # Docker quick start (local)
+├── playwright/selectors.ts   # CDN Ops portal selectors (Tool E)
+├── .env.example
+├── credentials/              # Service account + cdnops-auth.json (gitignored)
+├── client/
+│   └── src/
+│       ├── pages/ToolE.tsx
+│       ├── components/splash/  # DropZone, UploadRow, CdnPathDisplay, …
+│       ├── api/autoUpload.ts
+│       └── store/useToolEStore.ts
+├── worker/                   # Playwright upload worker (port 3002)
+│   └── src/pipeline/         # auth, upload, OB detection
+└── server/
 ```
 
 ---
@@ -504,10 +514,53 @@ Stored in Neon when `DATABASE_URL` is set:
 | `confirmed_bugs` | `week_id` + `check_date` + `row_id` | Legacy bug API (UI removed) |
 | `splash_checks` | `week_id` + `check_date` + `row_id` | Tool D splash/anno checklist per day |
 | `splash_upload_overrides` | `week_id` + `row_id` | Tool C QA upload overrides per week |
+| `auto_upload_log` | `week_id` + `row_id` | Tool E upload results (worker creates on startup) |
 
 **Carry-over:** On day N, rows in **Still active** that were checked on any earlier day in the same week appear pre-checked (saved to day N automatically). Same behaviour for Tool D (`splash_checks`).
 
 **Show all:** Progress unions all per-day checks across the week vs total unique rows in the week.
+
+---
+
+## Tool E auto upload (local only)
+
+Tool E runs a **separate worker container** with headless Playwright. It is **not deployed to Render**.
+
+### One-time setup
+
+```bash
+npm install
+npm run setup:worker          # Playwright Chromium
+npm run setup:cdnops-auth     # Log in to CDN OPS in a browser; saves credentials/cdnops-auth.json
+```
+
+Add to `.env`:
+
+```env
+WORKER_URL=http://localhost:3002
+WORKER_PORT=3002
+CDN_OB_VERSION=OB53           # fallback if sheet has no CDN URLs yet
+CDNOPS_STORAGE_STATE=./credentials/cdnops-auth.json
+```
+
+### Run (choose one)
+
+**Docker (recommended for QA):**
+
+```bash
+start.bat    # Windows — opens http://localhost:3001
+```
+
+**Dev mode (three terminals):**
+
+```bash
+npm run dev          # client :5173 + server :3001
+npm run dev:worker   # worker :3002
+```
+
+Open the app at **http://localhost:5173** (not :3001 in dev). Tool E: **Splash → Auto Upload (Tool E)**.
+
+Verify CDN OPS session: `npm run test:cdnops-auth -w worker`
 
 ---
 
@@ -561,6 +614,17 @@ User → /tool-d → Splash or Anno tab → pick date
   → GET /api/splash/checklist/:weekId
   → Group APPEAR / DISAPPEAR / Still active (Sort_ID order)
   → Toggle checkbox → PUT /api/splash/checklist/:weekId/check
+```
+
+### Splash auto upload (Tool E)
+
+```
+User → /tool-e → drop image on row
+  → POST /api/auto-upload/upload (proxied to worker)
+  → Worker: rename token → Playwright CDN Ops upload → generate CDN URL
+  → Neon auto_upload_log upsert
+  → UI: success + Copy CDN path
+  → Retry → DELETE /api/auto-upload/history/:rowId (after confirmation)
 ```
 
 ---
@@ -639,6 +703,7 @@ npm test    # server + client unit tests
 | Splash tools | Require `SPLASH_SHEET_ID`; share workbook with service account; tab `ID - Settings` |
 | Splash CDN columns | O = Anno, Q = Splash; empty O with Q filled is normal — use **Splash** tab in Tool D |
 | Splash GoPos lookup | Exact banner name match; **Gacha / Luck Royale** rows excluded; ≥1 remaining row must agree |
+| Tool E | Local Docker/dev worker only; office WiFi + CDN OPS login required; no sheet write-back |
 
 ---
 
@@ -652,6 +717,7 @@ npm test    # server + client unit tests
 - ~~Merged-cell name inheritance + asset tags~~ ✅
 - ~~CDN Ops upload deep-link~~ ✅ Client-side folder URL
 - ~~Splash & Anno Tool C/D (upload checker + in-game QA)~~ ✅
+- ~~Tool E — Splash/Anno auto upload to CDN Ops (local PoC)~~ ✅
 - Multi-user / per-QA audit trail
 - Google Sign-In or team SSO
 - Write-back to Google Sheets (requires user OAuth)
@@ -681,6 +747,12 @@ npm test    # server + client unit tests
 | `SPLASH_RECENT_WEEKS` | No | `4` | Only keep splash rows active in the last N weeks |
 | `SPLASH_RECENT_ROW_WINDOW` | No | `250` | Bottom N rows to fetch from `ID - Settings` |
 | `CDN_CHECK_CACHE_TTL_MS` | No | `600000` | CDN health check cache TTL (10 min) |
+| `WORKER_URL` | Tool E | — | Worker base URL (e.g. `http://localhost:3002` or `http://worker:3002` in Docker) |
+| `WORKER_PORT` | Tool E | `3002` | Worker listen port |
+| `CDN_OB_VERSION` | Tool E | Auto-detected | Fallback OB version (e.g. `OB53`) |
+| `CDNOPS_STORAGE_STATE` | Tool E | `./credentials/cdnops-auth.json` | Saved CDN OPS session (from `setup:cdnops-auth`) |
+| `CDNOPS_USERNAME` | Tool E | — | Optional auto-login (alternative to storage state) |
+| `CDNOPS_PASSWORD` | Tool E | — | Optional auto-login |
 | `NODE_ENV` | No | `development` | `production` enables static file serving + requires auth secrets |
 
 \*Required for persistent checklist and upload overrides in production; strongly recommended for team use.

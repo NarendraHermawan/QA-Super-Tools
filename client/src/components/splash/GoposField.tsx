@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { GoposLookupResult } from '../../types';
 
 interface Props {
@@ -11,22 +12,30 @@ function displayValue(
   sheetValue: string | null,
   lookup: GoposLookupResult,
   field: 'gopos' | 'subGopos',
-): { text: string; badge: string | null } {
+): { text: string; isSuggested: boolean } {
   if (sheetValue) {
-    return { text: sheetValue, badge: null };
+    return { text: sheetValue, isSuggested: false };
   }
   if (lookup.status === 'suggested') {
     return {
       text: field === 'gopos' ? lookup.gopos : lookup.subGopos,
-      badge: 'Suggested',
+      isSuggested: true,
     };
   }
-  return { text: '— not found', badge: null };
+  return { text: '— not found', isSuggested: false };
 }
 
 export function GoposField({ label, sheetValue, lookup, field }: Props) {
-  const { text, badge } = displayValue(sheetValue, lookup, field);
+  const [copied, setCopied] = useState(false);
+  const { text, isSuggested } = displayValue(sheetValue, lookup, field);
   const notFound = !sheetValue && lookup.status === 'not_found';
+
+  const handleCopy = async () => {
+    if (!text || text === '— not found') return;
+    await navigator.clipboard.writeText(text);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="min-w-0">
@@ -39,10 +48,10 @@ export function GoposField({ label, sheetValue, lookup, field }: Props) {
         >
           {text}
         </span>
-        {badge === 'Suggested' && (
-          <span className="rounded border border-accent/20 bg-accent-muted px-1.5 py-0.5 text-2xs font-medium text-accent-hover">
-            Suggested
-          </span>
+        {isSuggested && (
+          <button type="button" onClick={() => void handleCopy()} className="btn-ghost text-2xs">
+            {copied ? 'Copied' : 'Copy'}
+          </button>
         )}
       </div>
     </div>

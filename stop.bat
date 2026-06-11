@@ -1,0 +1,3 @@
+@echo off
+echo Stopping FFID QA Super Tools...
+docker compose down

@@ -42,6 +42,10 @@ export function refreshSplashWeeks(): Promise<WeeksResponse> {
   return request('/api/splash/refresh', { method: 'POST' });
 }
 
+export function fetchSplashSheetUrl(): Promise<{ url: string }> {
+  return request('/api/splash/sheet-url');
+}
+
 export function fetchSplashUploadOverrides(
   weekId: string,
 ): Promise<{ overrides: Record<string, boolean> }> {

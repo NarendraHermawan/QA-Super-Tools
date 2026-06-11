@@ -30,6 +30,8 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD ?? '',
   sessionSecret: process.env.SESSION_SECRET ?? '',
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  workerUrl: process.env.WORKER_URL ?? '',
+  cdnObVersion: process.env.CDN_OB_VERSION ?? '',
 };
 
 export function assertConfig(): void {

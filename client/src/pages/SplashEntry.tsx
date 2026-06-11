@@ -49,13 +49,15 @@ export function SplashEntry() {
     }
   };
 
-  const startTool = (tool: 'c' | 'd', week: SubWeek, date?: string) => {
+  const startTool = (tool: 'c' | 'd' | 'e', week: SubWeek, date?: string) => {
     setSelectedWeek(week);
     setSelectedDate(date ?? defaultDateForWeek(week.start, week.end));
-    navigate(tool === 'c' ? '/tool-c' : '/tool-d');
+    navigate(
+      tool === 'c' ? '/tool-c' : tool === 'd' ? '/tool-d' : '/tool-e',
+    );
   };
 
-  const handleDateMode = async (tool: 'c' | 'd') => {
+  const handleDateMode = async (tool: 'c' | 'd' | 'e') => {
     setDateWarning('');
     try {
       const { week } = await fetchSplashWeekForDate(pickedDate);
@@ -90,7 +92,7 @@ export function SplashEntry() {
     <div className="page-shell space-y-8">
       <PageHeader
         title="Select scope"
-        description="Choose a sub-week or a specific date, then open the Splash upload checker or in-game QA checklist."
+        description="Choose a sub-week or a specific date, then open the Splash upload checker, in-game QA checklist, or auto upload tool."
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -149,6 +151,16 @@ export function SplashEntry() {
               >
                 In-Game QA (Tool D)
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const week = weeks.find((w) => w.id === selectedWeekId);
+                  if (week) startTool('e', week);
+                }}
+                className="btn-secondary w-full sm:w-auto"
+              >
+                Auto Upload (Tool E)
+              </button>
             </div>
           </div>
         </section>
@@ -190,12 +202,19 @@ export function SplashEntry() {
               >
                 In-Game QA (Tool D)
               </button>
+              <button
+                type="button"
+                onClick={() => handleDateMode('e')}
+                className="btn-secondary w-full sm:w-auto"
+              >
+                Auto Upload (Tool E)
+              </button>
             </div>
           </div>
         </section>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <article className="panel p-4">
           <h3 className="text-sm font-semibold text-ink">Tool C — Upload Checker</h3>
           <p className="mt-1 text-sm text-ink-secondary">
@@ -208,6 +227,13 @@ export function SplashEntry() {
           <p className="mt-1 text-sm text-ink-secondary">
             Day-by-day checklist of Splash and Anno appear, disappear, and
             still-active entries with Sort_ID order.
+          </p>
+        </article>
+        <article className="panel p-4">
+          <h3 className="text-sm font-semibold text-ink">Tool E — Auto Upload</h3>
+          <p className="mt-1 text-sm text-ink-secondary">
+            Drop splash or anno files to rename, upload to CDN Ops, and copy the
+            generated CDN path. Requires local Docker and office WiFi.
           </p>
         </article>
       </section>

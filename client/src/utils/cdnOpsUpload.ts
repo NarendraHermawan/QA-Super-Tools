@@ -49,3 +49,8 @@ export function resolveCdnOpsUploadUrl(rawCdnUrl: string): string | null {
   const clean = candidates.eventFolderPath.replace(/^\/+/, '').replace(/\/+$/, '');
   return `${CDNOPS_UPLOAD_BASE}/${clean}`;
 }
+
+export function cdnOpsSplashFolderUrl(obVersion: string): string {
+  const ob = obVersion.trim() || 'OB53';
+  return `${CDNOPS_UPLOAD_BASE}/${ob}/ID/splash`;
+}

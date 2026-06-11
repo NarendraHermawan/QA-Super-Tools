@@ -8,3 +8,5 @@ Thumbs.db
 service-account*.json
 credentials/
 .vite/
+*.tsbuildinfo
+server/src/**/*.js

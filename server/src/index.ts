@@ -47,6 +47,20 @@ if (config.nodeEnv === 'production') {
   app.get('*', (_req, res) => {
     res.sendFile(path.join(clientDist, 'index.html'));
   });
+} else {
+  app.get('/', (_req, res) => {
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>FFID QA — dev</title></head>
+<body style="font-family:system-ui,sans-serif;max-width:36rem;margin:2rem auto;padding:0 1rem">
+  <h1>API server only</h1>
+  <p>In development the React app runs on Vite, not this port.</p>
+  <p><a href="http://localhost:5173">Open the app → http://localhost:5173</a></p>
+  <p>Start both with <code>npm run dev</code> from the project root.</p>
+  <p>Tool E also needs <code>npm run dev:worker</code> (port 3002).</p>
+</body>
+</html>`);
+  });
 }
 
 app.use(
