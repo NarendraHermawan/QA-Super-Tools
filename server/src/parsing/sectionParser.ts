@@ -90,6 +90,13 @@ function buildColumnMap(headerRow: GridRow): ColumnMap {
       map.assetDone = index;
     } else if (key === 'cdn uploaded') {
       map.cdnUploaded = index;
+    } else if (key === 'qa') {
+      // Standard layout: Asset Done (K) → CDN Uploaded (L) → QA (M)
+      if (map.cdnUploaded !== undefined && index > map.cdnUploaded) {
+        map.qaDone = index;
+      } else if (map.qaDone === undefined) {
+        map.qaDone = index;
+      }
     } else if (key === 'gopos') {
       map.gopos = index;
     } else if (key === 'subgopos' || key === 'sub gopos') {
@@ -135,6 +142,10 @@ function parseDataRow(
   const cdnUrl = normalizeCdnLink(rawCdn, cdnBaseUrl);
   const assetDone = parseBool(getCell(row, columns.assetDone));
   const cdnUploaded = parseBool(getCell(row, columns.cdnUploaded));
+  const qaDone =
+    columns.qaDone !== undefined
+      ? parseBool(getCell(row, columns.qaDone))
+      : false;
 
   const effectiveName = rawName || inheritedNamaTab;
   const cdnSource = cdnUrl ?? (isHttpUrl(rawCdn) ? rawCdn : rawCdn);
@@ -157,6 +168,9 @@ function parseDataRow(
     endTime: endDt ? toIsoDateTime(endDt) : '',
     assetDone,
     cdnUploaded,
+    qaDone,
+    sheetRowNumber: rowIndex + 1,
+    qaColumnIndex: columns.qaDone,
     placement,
     rowState: computeRowState(assetDone, cdnUploaded),
     subWeekLabel,

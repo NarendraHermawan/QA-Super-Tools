@@ -45,6 +45,11 @@ export interface BannerRow {
   endTime: string;
   assetDone: boolean;
   cdnUploaded: boolean;
+  qaDone: boolean;
+  /** 1-based row number in the Google Sheet tab */
+  sheetRowNumber: number;
+  /** 0-based column index for the QA checkbox (col M in standard layout) */
+  qaColumnIndex?: number;
   placement: CanonicalPlacement;
   rowState: RowState;
   subWeekLabel: string;

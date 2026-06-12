@@ -10,3 +10,5 @@ credentials/
 .vite/
 *.tsbuildinfo
 server/src/**/*.js
+tmp/
+scripts/downloads/

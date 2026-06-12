@@ -39,6 +39,16 @@ async function initSchema(): Promise<void> {
   `;
 
   await db`
+    CREATE TABLE IF NOT EXISTS checklist_carry_skips (
+      week_id TEXT NOT NULL,
+      check_date TEXT NOT NULL,
+      row_id TEXT NOT NULL,
+      skipped_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (week_id, check_date, row_id)
+    )
+  `;
+
+  await db`
     CREATE TABLE IF NOT EXISTS confirmed_bugs (
       week_id TEXT NOT NULL,
       check_date TEXT NOT NULL,

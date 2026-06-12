@@ -6,6 +6,7 @@ services:
     plan: free
     region: singapore
     buildCommand: >-
+      pip3 install --break-system-packages -r requirements.txt &&
       npm install --include=dev &&
       npm run build &&
       mkdir -p credentials &&
@@ -42,4 +43,12 @@ services:
       - key: ADMIN_PASSWORD
         sync: false
       - key: SESSION_SECRET
+        sync: false
+      - key: CDN_API_TOKEN
+        sync: false
+      - key: NOTION_API_TOKEN
+        sync: false
+      - key: SEATALK_WEBHOOK_URL
+        sync: false
+      - key: WORKER_URL
         sync: false

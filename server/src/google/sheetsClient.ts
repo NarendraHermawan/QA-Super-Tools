@@ -3,6 +3,18 @@ import { google } from 'googleapis';
 import { config } from '../config.js';
 import type { GridRow } from '../parsing/weekModel.js';
 
+/** 0-based column index → A1 column letter (0 = A, 12 = M). */
+export function columnIndexToA1(columnIndex: number): string {
+  let n = columnIndex + 1;
+  let letters = '';
+  while (n > 0) {
+    n -= 1;
+    letters = String.fromCharCode(65 + (n % 26)) + letters;
+    n = Math.floor(n / 26);
+  }
+  return letters;
+}
+
 export class SheetsClient {
   private sheets;
   private spreadsheetId: string;
@@ -14,7 +26,7 @@ export class SheetsClient {
     );
     const auth = new google.auth.GoogleAuth({
       credentials,
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
     this.sheets = google.sheets({ version: 'v4', auth });
   }
@@ -98,5 +110,57 @@ export class SheetsClient {
       }),
     );
     return result;
+  }
+
+  async getRightmostVisibleTabName(): Promise<string | null> {
+    const response = await this.sheets.spreadsheets.get({
+      spreadsheetId: this.spreadsheetId,
+      fields: 'sheets.properties(title,hidden)',
+    });
+    const visible =
+      response.data.sheets?.filter(
+        (sheet) => !sheet.properties?.hidden,
+      ) ?? [];
+    const rightmost = visible[visible.length - 1];
+    return rightmost?.properties?.title ?? null;
+  }
+
+  async updateCheckboxCell(
+    tabName: string,
+    row: number,
+    columnIndex: number,
+    checked: boolean,
+  ): Promise<void> {
+    const column = columnIndexToA1(columnIndex);
+    await this.sheets.spreadsheets.values.update({
+      spreadsheetId: this.spreadsheetId,
+      range: `${this.escapeTabName(tabName)}!${column}${row}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[checked]],
+      },
+    });
+  }
+
+  async batchUpdateCheckboxCells(
+    updates: Array<{
+      tabName: string;
+      row: number;
+      columnIndex: number;
+      checked: boolean;
+    }>,
+  ): Promise<void> {
+    if (updates.length === 0) return;
+
+    await this.sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: this.spreadsheetId,
+      requestBody: {
+        valueInputOption: 'USER_ENTERED',
+        data: updates.map((update) => ({
+          range: `${this.escapeTabName(update.tabName)}!${columnIndexToA1(update.columnIndex)}${update.row}`,
+          values: [[update.checked]],
+        })),
+      },
+    });
   }
 }

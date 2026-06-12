@@ -1,4 +1,4 @@
-import type { BannerRow, ChecklistGroup } from '../types';
+import type { BannerRow, ChecklistGroup, RowState } from '../types';
 import {
   endsOnDate,
   isActiveOnDate,
@@ -6,6 +6,9 @@ import {
   startsOnDate,
   WEEK_VIEW_ALL,
 } from './date';
+import { effectiveRowState, type UploadOverrides } from './uploadOverrides';
+
+export type CdnHealthStatus = 'ok' | 'broken' | 'checking' | 'na';
 
 export interface GroupedChecklist {
   appear: BannerRow[];
@@ -104,12 +107,14 @@ export function checklistStorageDate(
 
 export function resolveCheckedForDate(
   byDate: Record<string, string[]>,
+  carrySkips: Record<string, string[]>,
   selectedDate: string,
   weekDays: string[],
   activeRowIds: string[],
   viewAllWeek: boolean,
 ): { checkedIds: Set<string>; carryOverIds: string[] } {
   const storageDate = checklistStorageDate(selectedDate, viewAllWeek);
+  const skipped = new Set(carrySkips[storageDate] ?? []);
 
   if (viewAllWeek) {
     const checkedIds = new Set(byDate[storageDate] ?? []);
@@ -127,6 +132,7 @@ export function resolveCheckedForDate(
 
   for (const rowId of activeRowIds) {
     if (checkedIds.has(rowId)) continue;
+    if (skipped.has(rowId)) continue;
     const carried = previousDays.some((day) => byDate[day]?.includes(rowId));
     if (carried) {
       checkedIds.add(rowId);

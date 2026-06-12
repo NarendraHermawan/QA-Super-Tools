@@ -19,6 +19,8 @@ function makeRow(
     endTime: '2026-06-16',
     assetDone: true,
     cdnUploaded: false,
+    qaDone: false,
+    sheetRowNumber: 1,
     placement: 'Shopping Mall',
     rowState: 'ready_to_upload',
     subWeekLabel: '10 - 16 Jun',

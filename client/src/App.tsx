@@ -10,6 +10,7 @@ import { ToolB } from './pages/ToolB';
 import { ToolC } from './pages/ToolC';
 import { ToolD } from './pages/ToolD';
 import { ToolE } from './pages/ToolE';
+import { ToolF } from './pages/ToolF';
 import { ToolSelector } from './pages/ToolSelector';
 import { useAuthStore } from './store/useAuthStore';
 
@@ -38,6 +39,7 @@ export default function App() {
         <Route path="/tool-c" element={<ToolC />} />
         <Route path="/tool-d" element={<ToolD />} />
         <Route path="/tool-e" element={<ToolE />} />
+        <Route path="/tool-f" element={<ToolF />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

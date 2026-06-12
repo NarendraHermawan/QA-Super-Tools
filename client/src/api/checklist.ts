@@ -22,7 +22,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function fetchChecklistWeek(
   weekId: string,
-): Promise<{ byDate: Record<string, string[]> }> {
+): Promise<{
+  byDate: Record<string, string[]>;
+  carrySkips: Record<string, string[]>;
+}> {
   return request(`/api/checklist/${encodeURIComponent(weekId)}`);
 }
 
@@ -48,6 +51,18 @@ export function saveChecklistBatch(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ date, rowIds }),
+  });
+}
+
+export function clearChecklistRow(
+  weekId: string,
+  rowId: string,
+  dates: string[],
+): Promise<{ ok: boolean; cleared: number }> {
+  return request(`/api/checklist/${encodeURIComponent(weekId)}/clear-row`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rowId, dates }),
   });
 }
 

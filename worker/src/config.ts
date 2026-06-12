@@ -32,4 +32,12 @@ export const config = {
     process.env.CDNOPS_STORAGE_STATE ??
       './credentials/cdnops-auth.json',
   ),
+  cdnApiToken: process.env.CDN_API_TOKEN ?? '',
+  notionApiToken: process.env.NOTION_API_TOKEN ?? '',
+  seatalkWebhookUrl: process.env.SEATALK_WEBHOOK_URL ?? '',
+  toolFDownloadBase:
+    process.env.TOOL_F_DOWNLOAD_BASE ??
+    path.resolve(projectRoot, 'tmp', 'tool-f-downloads'),
+  sheetTitle: process.env.SHEET_TITLE ?? '[FFID] Weekly CDN Checklist',
+  pythonCommand: process.env.PYTHON_COMMAND ?? '',
 };

@@ -13,6 +13,7 @@ interface AppState {
   uploadOverrides: UploadOverrides;
   checklistWeekId: string | null;
   checklistByDate: Record<string, string[]>;
+  checklistCarrySkips: Record<string, string[]>;
   setSelectedWeek: (week: SubWeek | null) => void;
   setSelectedDate: (date: string | null) => void;
   togglePlacement: (placement: CanonicalPlacement) => void;
@@ -22,9 +23,13 @@ interface AppState {
   setChecklistWeekState: (
     weekId: string,
     byDate: Record<string, string[]>,
+    carrySkips?: Record<string, string[]>,
   ) => void;
   mergeChecklistDate: (date: string, rowIds: string[]) => void;
   setChecklistDate: (date: string, rowIds: string[]) => void;
+  addChecklistCarrySkip: (date: string, rowId: string) => void;
+  removeChecklistCarrySkip: (date: string, rowId: string) => void;
+  clearChecklistRowFromWeek: (dates: string[], rowId: string) => void;
   toggleChecked: (rowId: string) => void;
   setConfirmedBugs: (bugs: ConfirmedBug[]) => void;
   confirmBug: (bug: ConfirmedBug) => void;
@@ -44,6 +49,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   uploadOverrides: {},
   checklistWeekId: null,
   checklistByDate: {},
+  checklistCarrySkips: {},
   setSelectedWeek: (week) => set({ selectedWeek: week }),
   setSelectedDate: (date) => set({ selectedDate: date }),
   togglePlacement: (placement) => {
@@ -62,8 +68,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   setPlacements: (placements) => set({ selectedPlacements: placements }),
   setIncludeCraftland: (include) => set({ includeCraftland: include }),
   setCheckedRowIds: (rowIds) => set({ checkedRowIds: rowIds }),
-  setChecklistWeekState: (weekId, byDate) =>
-    set({ checklistWeekId: weekId, checklistByDate: byDate }),
+  setChecklistWeekState: (weekId, byDate, carrySkips = {}) =>
+    set({
+      checklistWeekId: weekId,
+      checklistByDate: byDate,
+      checklistCarrySkips: carrySkips,
+    }),
   mergeChecklistDate: (date, rowIds) => {
     const existing = new Set(get().checklistByDate[date] ?? []);
     for (const rowId of rowIds) existing.add(rowId);
@@ -81,6 +91,40 @@ export const useAppStore = create<AppState>((set, get) => ({
         [date]: rowIds,
       },
     }),
+  addChecklistCarrySkip: (date, rowId) => {
+    const existing = new Set(get().checklistCarrySkips[date] ?? []);
+    existing.add(rowId);
+    set({
+      checklistCarrySkips: {
+        ...get().checklistCarrySkips,
+        [date]: [...existing],
+      },
+    });
+  },
+  removeChecklistCarrySkip: (date, rowId) => {
+    const next = (get().checklistCarrySkips[date] ?? []).filter(
+      (id) => id !== rowId,
+    );
+    const carrySkips = { ...get().checklistCarrySkips };
+    if (next.length === 0) delete carrySkips[date];
+    else carrySkips[date] = next;
+    set({ checklistCarrySkips: carrySkips });
+  },
+  clearChecklistRowFromWeek: (dates, rowId) => {
+    const nextByDate = { ...get().checklistByDate };
+    const nextSkips = { ...get().checklistCarrySkips };
+    for (const date of dates) {
+      if (nextByDate[date]) {
+        nextByDate[date] = nextByDate[date].filter((id) => id !== rowId);
+        if (nextByDate[date].length === 0) delete nextByDate[date];
+      }
+      if (nextSkips[date]) {
+        nextSkips[date] = nextSkips[date].filter((id) => id !== rowId);
+        if (nextSkips[date].length === 0) delete nextSkips[date];
+      }
+    }
+    set({ checklistByDate: nextByDate, checklistCarrySkips: nextSkips });
+  },
   toggleChecked: (rowId) => {
     const next = new Set(get().checkedRowIds);
     if (next.has(rowId)) next.delete(rowId);
@@ -114,5 +158,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       uploadOverrides: {},
       checklistWeekId: null,
       checklistByDate: {},
+      checklistCarrySkips: {},
     }),
 }));

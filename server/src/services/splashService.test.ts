@@ -23,6 +23,8 @@ function bannerRow(
     endTime: '2026-06-16',
     assetDone: true,
     cdnUploaded: false,
+    qaDone: false,
+    sheetRowNumber: 1,
     placement,
     rowState: 'ready_to_upload',
     subWeekLabel: '3-9 Jun',

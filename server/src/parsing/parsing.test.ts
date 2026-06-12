@@ -110,6 +110,18 @@ describe('sectionParser', () => {
     expect(rows.some((r) => r.displayName === 'LobbyBG.png')).toBe(true);
   });
 
+  it('maps col M QA checkbox using the QA header after CDN Uploaded', () => {
+    const rows = parseSheetGrid(
+      SAMPLE_TAB_NAME,
+      sampleGrid,
+      'https://dl.dir.freefiremobile.com/common/',
+    );
+    const followUs = rows.find((row) => row.displayName === 'Follow Us!');
+    expect(followUs?.qaColumnIndex).toBe(12);
+    expect(followUs?.sheetRowNumber).toBe(3);
+    expect(followUs?.qaDone).toBe(false);
+  });
+
   it('parses single-week tabs where section headers omit the date in column B', () => {
     const tabName = '17 – 24 Jun 26 Before Patch';
     const grid = [
@@ -439,6 +451,8 @@ describe('disambiguateDuplicateEventTags', () => {
         endTime: '2026-06-12 23:59:59',
         assetDone: true,
         cdnUploaded: true,
+        qaDone: false,
+        sheetRowNumber: 1,
         placement: 'Event' as const,
         rowState: 'uploaded' as const,
         subWeekLabel: '10 - 16 Jun',
@@ -458,6 +472,8 @@ describe('disambiguateDuplicateEventTags', () => {
         endTime: '2026-06-14 23:59:59',
         assetDone: true,
         cdnUploaded: false,
+        qaDone: false,
+        sheetRowNumber: 2,
         placement: 'Event' as const,
         rowState: 'ready_to_upload' as const,
         subWeekLabel: '10 - 16 Jun',

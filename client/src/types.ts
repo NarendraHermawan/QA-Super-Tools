@@ -35,6 +35,9 @@ export interface BannerRow {
   endTime: string;
   assetDone: boolean;
   cdnUploaded: boolean;
+  qaDone: boolean;
+  sheetRowNumber: number;
+  qaColumnIndex?: number;
   placement: CanonicalPlacement;
   rowState: RowState;
   subWeekLabel: string;

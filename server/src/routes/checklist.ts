@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   addConfirmedBug,
+  clearChecklistRowFromDates,
   getChecklistWeekState,
   getConfirmedBugs,
   setChecklistBatch,
@@ -11,6 +12,10 @@ import {
   getUploadOverrides,
   setUploadOverride,
 } from '../db/uploadOverrideRepo.js';
+import {
+  syncBannerQaBatchToSheet,
+  syncBannerQaToSheet,
+} from '../services/bannerSheetWriteback.js';
 import type { ConfirmedBug } from '../types.js';
 
 export const checklistRouter = Router();
@@ -46,7 +51,16 @@ checklistRouter.put('/:weekId/check', async (req, res, next) => {
     }
 
     await setChecklistItem(weekId, date, rowId, checked);
-    res.json({ ok: true });
+
+    let sheetQa: Awaited<ReturnType<typeof syncBannerQaToSheet>> | undefined;
+    try {
+      sheetQa = await syncBannerQaToSheet(weekId, rowId, checked);
+    } catch (error) {
+      console.error('Tool B sheet QA write-back failed:', error);
+      sheetQa = { written: false, reason: 'row_not_found' };
+    }
+
+    res.json({ ok: true, sheetQa });
   } catch (error) {
     next(error);
   }
@@ -66,7 +80,45 @@ checklistRouter.post('/:weekId/check-batch', async (req, res, next) => {
     }
 
     await setChecklistBatch(weekId, date, rowIds);
-    res.json({ ok: true, saved: rowIds.length });
+
+    let sheetQa: { written: number; skipped: number } | undefined;
+    try {
+      sheetQa = await syncBannerQaBatchToSheet(weekId, rowIds, true);
+    } catch (error) {
+      console.error('Tool B batch sheet QA write-back failed:', error);
+      sheetQa = { written: 0, skipped: rowIds.length };
+    }
+
+    res.json({ ok: true, saved: rowIds.length, sheetQa });
+  } catch (error) {
+    next(error);
+  }
+});
+
+checklistRouter.post('/:weekId/clear-row', async (req, res, next) => {
+  try {
+    const weekId = decodeURIComponent(req.params.weekId);
+    const { rowId, dates } = req.body as {
+      rowId?: string;
+      dates?: string[];
+    };
+
+    if (!rowId || !Array.isArray(dates)) {
+      res.status(400).json({ error: 'rowId and dates array are required' });
+      return;
+    }
+
+    await clearChecklistRowFromDates(weekId, rowId, dates);
+
+    let sheetQa: Awaited<ReturnType<typeof syncBannerQaToSheet>> | undefined;
+    try {
+      sheetQa = await syncBannerQaToSheet(weekId, rowId, false);
+    } catch (error) {
+      console.error('Tool B sheet QA write-back failed:', error);
+      sheetQa = { written: false, reason: 'row_not_found' };
+    }
+
+    res.json({ ok: true, cleared: dates.length, sheetQa });
   } catch (error) {
     next(error);
   }

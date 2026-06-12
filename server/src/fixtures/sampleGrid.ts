@@ -17,6 +17,7 @@ export const sampleGrid: GridRow[] = [
     'Asset',
     'Asset Done',
     'CDN Uploaded',
+    'QA',
   ],
   [
     'Follow Us!',
@@ -31,6 +32,7 @@ export const sampleGrid: GridRow[] = [
     '',
     1,
     1,
+    0,
   ],
   [
     'Rekomendasi Craftland',
@@ -45,6 +47,7 @@ export const sampleGrid: GridRow[] = [
     '',
     1,
     1,
+    0,
   ],
   ['Overview', '10 - 16 Jun'],
   [
@@ -60,6 +63,7 @@ export const sampleGrid: GridRow[] = [
     'Asset',
     'Asset Done',
     'CDN Uploaded',
+    'QA',
   ],
   [
     'Rekomendasi Craftland',
@@ -72,6 +76,7 @@ export const sampleGrid: GridRow[] = [
     1,
     'Berita Booyah',
     '',
+    0,
     0,
     0,
   ],
@@ -88,6 +93,7 @@ export const sampleGrid: GridRow[] = [
     '',
     1,
     1,
+    0,
   ],
   ['Gacha', '10 - 16 Jun'],
   [
@@ -103,6 +109,7 @@ export const sampleGrid: GridRow[] = [
     'Asset',
     'Asset Done',
     'CDN Uploaded',
+    'QA',
   ],
   [
     '',
@@ -115,6 +122,7 @@ export const sampleGrid: GridRow[] = [
     0,
     '',
     '',
+    0,
     0,
     0,
   ],

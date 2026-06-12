@@ -87,6 +87,24 @@ export function resetSheetsClient(): void {
   sheetsClient = null;
 }
 
+export async function findBannerRowById(
+  weekId: string,
+  rowId: string,
+): Promise<{ row: BannerRow; tabName: string } | null> {
+  const { weeks, grids } = await loadCache();
+  const week = weeks.find((item) => item.id === weekId);
+  if (!week) return null;
+
+  const grid = grids[week.tabName];
+  if (!grid) return null;
+
+  const weekData = buildWeekData(week, grid, config.cdnBaseUrl);
+  const row = weekData.allRows.find((item) => item.id === rowId);
+  if (!row) return null;
+
+  return { row, tabName: week.tabName };
+}
+
 export async function getAllBannerRows(): Promise<BannerRow[]> {
   const { weeks, grids } = await loadCache();
   const rows: BannerRow[] = [];

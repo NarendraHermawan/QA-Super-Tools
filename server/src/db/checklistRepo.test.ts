@@ -42,6 +42,17 @@ describe('checklistRepo (memory fallback)', () => {
 
     const state = await getChecklistWeekState(weekId);
     expect(state.byDate['2026-06-10']).toBeUndefined();
+    expect(state.carrySkips['2026-06-10']).toEqual(['row-1']);
+  });
+
+  it('clears carry skip when re-checking', async () => {
+    const weekId = 'tab::10 - 16 Jun';
+    await setChecklistItem(weekId, '2026-06-11', 'row-1', false);
+    await setChecklistItem(weekId, '2026-06-11', 'row-1', true);
+
+    const state = await getChecklistWeekState(weekId);
+    expect(state.byDate['2026-06-11']).toEqual(['row-1']);
+    expect(state.carrySkips['2026-06-11']).toBeUndefined();
   });
 
   it('batch saves multiple row ids', async () => {

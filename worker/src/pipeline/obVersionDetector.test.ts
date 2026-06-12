@@ -46,6 +46,6 @@ describe('detectObVersion', () => {
   it('falls back to anno then env', () => {
     expect(detectObVersion(records)).toBe('OB54');
     expect(detectObVersion([], 'OB99')).toBe('OB99');
-    expect(detectObVersion([])).toBeNull();
+    expect(detectObVersion([], '')).toBeNull();
   });
 });

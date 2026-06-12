@@ -2,7 +2,11 @@ import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 
 const NAV = [
-  { path: '/banner', label: 'Banner', match: ['/banner', '/tool-a', '/tool-b'] },
+  {
+    path: '/banner',
+    label: 'Banner',
+    match: ['/banner', '/tool-a', '/tool-b', '/tool-f'],
+  },
   { path: '/splash', label: 'Splash', match: ['/splash', '/tool-c', '/tool-d', '/tool-e'] },
 ] as const;
 

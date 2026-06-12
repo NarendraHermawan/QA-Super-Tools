@@ -7,6 +7,7 @@ describe('resolveCheckedForDate', () => {
   it('returns checks saved for the selected day', () => {
     const result = resolveCheckedForDate(
       { '2026-06-11': ['row-a'] },
+      {},
       '2026-06-11',
       weekDays,
       [],
@@ -22,6 +23,7 @@ describe('resolveCheckedForDate', () => {
         '2026-06-10': ['row-active', 'row-disappear'],
         '2026-06-11': ['row-new'],
       },
+      {},
       '2026-06-11',
       weekDays,
       ['row-active'],
@@ -31,6 +33,21 @@ describe('resolveCheckedForDate', () => {
     expect(result.carryOverIds).toEqual(['row-active']);
   });
 
+  it('does not carry over when the row was explicitly unchecked on this day', () => {
+    const result = resolveCheckedForDate(
+      {
+        '2026-06-10': ['row-active'],
+      },
+      { '2026-06-11': ['row-active'] },
+      '2026-06-11',
+      weekDays,
+      ['row-active'],
+      false,
+    );
+    expect([...result.checkedIds]).toEqual([]);
+    expect(result.carryOverIds).toEqual([]);
+  });
+
   it('aggregates per-day checks in full-week view', () => {
     const result = resolveCheckedForDate(
       {
@@ -38,6 +55,7 @@ describe('resolveCheckedForDate', () => {
         '2026-06-10': ['row-a', 'row-b'],
         '2026-06-11': ['row-c'],
       },
+      {},
       '2026-06-11',
       weekDays,
       [],

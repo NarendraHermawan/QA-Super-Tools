@@ -9,7 +9,10 @@ import { cdnUrlForHealthCheck } from '../parsing/cdnLink.js';
 import { config } from '../config.js';
 import { checklistRouter } from './checklist.js';
 import { autoUploadProxyRouter } from './autoUploadProxy.js';
+import { toolFConfigRouter } from './toolFConfig.js';
+import { toolFProxyRouter } from './toolFProxy.js';
 import { splashRouter } from './splashApi.js';
+import { testCdnApiConnectivity } from '../services/cdnConnectivity.js';
 import {
   fetchWeekById,
   fetchWeeks,
@@ -22,6 +25,23 @@ export const apiRouter = Router();
 apiRouter.use('/checklist', checklistRouter);
 apiRouter.use('/splash', splashRouter);
 apiRouter.use('/auto-upload', autoUploadProxyRouter);
+apiRouter.use('/tool-f', toolFConfigRouter);
+apiRouter.use('/tool-f', toolFProxyRouter);
+
+apiRouter.get('/test-cdn-connectivity', async (_req, res, next) => {
+  try {
+    const result = await testCdnApiConnectivity();
+    res.json({
+      ...result,
+      scenario: result.reachable ? 'A' : 'B',
+      hint: result.reachable
+        ? 'CDN API reachable — Tool F can run on Render if Python deps are installed.'
+        : 'CDN API not reachable — use local Docker/worker with office network.',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 apiRouter.get('/weeks', async (_req, res, next) => {
   try {

@@ -32,6 +32,7 @@ export const config = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   workerUrl: process.env.WORKER_URL ?? '',
   cdnObVersion: process.env.CDN_OB_VERSION ?? '',
+  cdnApiToken: process.env.CDN_API_TOKEN ?? '',
 };
 
 export function assertConfig(): void {

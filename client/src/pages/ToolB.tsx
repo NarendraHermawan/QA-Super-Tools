@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   fetchChecklistWeek,
+  clearChecklistRow,
   saveChecklistBatch,
   saveChecklistItem,
 } from '../api/checklist';
@@ -23,7 +24,7 @@ import {
   groupChecklistRows,
   resolveCheckedForDate,
 } from '../utils/checklist';
-import { defaultDateForWeek, isWeekViewAll } from '../utils/date';
+import { defaultDateForWeek, isWeekViewAll, WEEK_VIEW_ALL } from '../utils/date';
 import { applyToolBFilters, splitByCraftland } from '../utils/placements';
 import { LoadingState } from '../components/ui/LoadingState';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -44,9 +45,17 @@ export function ToolB() {
   const setCheckedRowIds = useAppStore((s) => s.setCheckedRowIds);
   const checklistWeekId = useAppStore((s) => s.checklistWeekId);
   const checklistByDate = useAppStore((s) => s.checklistByDate);
+  const checklistCarrySkips = useAppStore((s) => s.checklistCarrySkips);
   const setChecklistWeekState = useAppStore((s) => s.setChecklistWeekState);
   const mergeChecklistDate = useAppStore((s) => s.mergeChecklistDate);
   const setChecklistDate = useAppStore((s) => s.setChecklistDate);
+  const addChecklistCarrySkip = useAppStore((s) => s.addChecklistCarrySkip);
+  const removeChecklistCarrySkip = useAppStore(
+    (s) => s.removeChecklistCarrySkip,
+  );
+  const clearChecklistRowFromWeek = useAppStore(
+    (s) => s.clearChecklistRowFromWeek,
+  );
   const toggleChecked = useAppStore((s) => s.toggleChecked);
   const [rows, setRows] = useState<BannerRow[]>([]);
   const [days, setDays] = useState<string[]>([]);
@@ -90,7 +99,13 @@ export function ToolB() {
 
     fetchChecklistWeek(selectedWeek.id)
       .then((state) => {
-        if (!cancelled) setChecklistWeekState(selectedWeek.id, state.byDate);
+        if (!cancelled) {
+          setChecklistWeekState(
+            selectedWeek.id,
+            state.byDate,
+            state.carrySkips ?? {},
+          );
+        }
       })
       .catch((err: Error) => {
         if (!cancelled) console.error('Failed to load checklist storage:', err);
@@ -145,6 +160,7 @@ export function ToolB() {
 
     const { checkedIds, carryOverIds } = resolveCheckedForDate(
       checklistByDate,
+      checklistCarrySkips,
       activeDate,
       days,
       activeRowIds,
@@ -163,6 +179,7 @@ export function ToolB() {
     selectedWeek,
     checklistWeekId,
     checklistByDate,
+    checklistCarrySkips,
     activeDate,
     days,
     activeRowIds,
@@ -180,11 +197,27 @@ export function ToolB() {
       const nextChecked = !wasChecked;
       toggleChecked(rowId);
 
+      if (viewAllWeek && !nextChecked) {
+        const datesToClear = [WEEK_VIEW_ALL, ...days];
+        clearChecklistRowFromWeek(datesToClear, rowId);
+        void clearChecklistRow(selectedWeek.id, rowId, datesToClear).catch(
+          (err: Error) =>
+            console.error('Failed to clear checklist row:', err),
+        );
+        return;
+      }
+
       const current = checklistByDate[storageDate] ?? [];
       const updated = nextChecked
         ? [...new Set([...current, rowId])]
         : current.filter((id) => id !== rowId);
       setChecklistDate(storageDate, updated);
+
+      if (nextChecked) {
+        removeChecklistCarrySkip(storageDate, rowId);
+      } else {
+        addChecklistCarrySkip(storageDate, rowId);
+      }
 
       void saveChecklistItem(
         selectedWeek.id,
@@ -199,9 +232,14 @@ export function ToolB() {
       selectedWeek,
       checkedRowIds,
       toggleChecked,
+      viewAllWeek,
+      days,
+      clearChecklistRowFromWeek,
       storageDate,
       checklistByDate,
       setChecklistDate,
+      removeChecklistCarrySkip,
+      addChecklistCarrySkip,
     ],
   );
 

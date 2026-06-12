@@ -4,6 +4,7 @@ import { fetchWeekForDate, fetchWeeks, refreshWeeks } from '../api/client';
 import { useAppStore } from '../store/useAppStore';
 import type { SubWeek } from '../types';
 import { defaultDateForWeek, todayWib } from '../utils/date';
+import { normalizeDash } from '../utils/dash';
 import { LoadingState } from '../components/ui/LoadingState';
 import { PageHeader } from '../components/ui/PageHeader';
 
@@ -57,10 +58,13 @@ export function EntryPoint() {
     }
   };
 
-  const startTool = (tool: 'a' | 'b', week: SubWeek, date?: string) => {
+  const startTool = (tool: 'a' | 'b' | 'f', week: SubWeek, date?: string) => {
     setSelectedWeek(week);
-    setSelectedDate(date ?? defaultDateForWeek(week.start, week.end));
-    navigate(tool === 'a' ? '/tool-a' : '/tool-b');
+    if (tool !== 'f') {
+      setSelectedDate(date ?? defaultDateForWeek(week.start, week.end));
+    }
+    const routes = { a: '/tool-a', b: '/tool-b', f: '/tool-f' } as const;
+    navigate(routes[tool]);
   };
 
   const handleDateMode = async (tool: 'a' | 'b') => {
@@ -121,7 +125,7 @@ export function EntryPoint() {
                 >
                   {weeks.map((week) => (
                     <option key={week.id} value={week.id}>
-                      {week.label}
+                      {normalizeDash(week.label)}
                     </option>
                   ))}
                 </select>
@@ -155,6 +159,16 @@ export function EntryPoint() {
                 className="btn-secondary w-full sm:w-auto"
               >
                 QA Checklist
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const week = weeks.find((w) => w.id === selectedWeekId);
+                  if (week) startTool('f', week);
+                }}
+                className="btn-secondary w-full sm:w-auto"
+              >
+                Auto Upload
               </button>
             </div>
           </div>
@@ -202,7 +216,7 @@ export function EntryPoint() {
         </section>
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-2">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <article className="panel p-4">
           <h3 className="text-sm font-semibold text-ink">Tool A — CDN Checker</h3>
           <p className="mt-1 text-sm text-ink-secondary">
@@ -215,6 +229,13 @@ export function EntryPoint() {
           <p className="mt-1 text-sm text-ink-secondary">
             Day-by-day view of banners that should appear, disappear, or stay
             active. Check off items as you verify in-game.
+          </p>
+        </article>
+        <article className="panel p-4">
+          <h3 className="text-sm font-semibold text-ink">Tool F — Banner Auto Upload</h3>
+          <p className="mt-1 text-sm text-ink-secondary">
+            One-click bulk upload for the selected sub-week. Fetches from
+            Notion/Drive, uploads via CDN API, writes col L.
           </p>
         </article>
       </section>

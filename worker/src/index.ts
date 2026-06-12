@@ -3,10 +3,10 @@ import cors from 'cors';
 import express from 'express';
 import { config } from './config.js';
 import { getDb, isDbEnabled } from './db/client.js';
-import { requireAuth } from './middleware/requireAuth.js';
 import { shutdownPlaywright } from './pipeline/playwrightUploader.js';
 import { purgeUploadTempRoot } from './pipeline/uploadPipeline.js';
 import { autoUploadRouter } from './routes/autoUploadApi.js';
+import { toolFRouter } from './routes/toolFApi.js';
 
 async function migrateSchema(): Promise<void> {
   if (!isDbEnabled()) {
@@ -37,17 +37,50 @@ async function migrateSchema(): Promise<void> {
       ON auto_upload_log(week_id)
   `;
   console.log('auto_upload_log table ready');
+
+  await db`
+    CREATE TABLE IF NOT EXISTS tool_f_jobs (
+      id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      triggered_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      status        TEXT NOT NULL DEFAULT 'running'
+                    CHECK (status IN ('running', 'completed', 'cancelled', 'failed')),
+      total_rows    INTEGER NOT NULL DEFAULT 0,
+      succeeded     INTEGER NOT NULL DEFAULT 0,
+      failed        INTEGER NOT NULL DEFAULT 0,
+      skipped       INTEGER NOT NULL DEFAULT 0,
+      completed_at  TIMESTAMPTZ
+    )
+  `;
+  await db`
+    CREATE TABLE IF NOT EXISTS tool_f_log (
+      id            SERIAL PRIMARY KEY,
+      job_id        UUID NOT NULL REFERENCES tool_f_jobs(id) ON DELETE CASCADE,
+      row_label     TEXT,
+      ff_url        TEXT,
+      status        TEXT NOT NULL CHECK (status IN ('success', 'failed', 'skipped', 'info')),
+      message       TEXT,
+      cdn_url       TEXT,
+      logged_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+  await db`
+    CREATE INDEX IF NOT EXISTS idx_tool_f_log_job_id ON tool_f_log(job_id)
+  `;
+  console.log('tool_f_jobs / tool_f_log tables ready');
 }
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
 app.use(cookieParser());
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', service: 'auto-upload-worker' });
 });
 
-app.use('/api/auto-upload', requireAuth, autoUploadRouter);
+// Auth is enforced on the main server; the worker is a localhost-only internal service.
+app.use('/api/auto-upload', autoUploadRouter);
+app.use('/api/tool-f', toolFRouter);
 
 app.use(
   (

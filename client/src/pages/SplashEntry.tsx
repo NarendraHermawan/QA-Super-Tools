@@ -139,7 +139,7 @@ export function SplashEntry() {
                 }}
                 className="btn-primary w-full sm:w-auto"
               >
-                Upload Checker (Tool C)
+                Upload Checker
               </button>
               <button
                 type="button"
@@ -149,7 +149,7 @@ export function SplashEntry() {
                 }}
                 className="btn-secondary w-full sm:w-auto"
               >
-                In-Game QA (Tool D)
+                In-Game QA
               </button>
               <button
                 type="button"
@@ -159,7 +159,7 @@ export function SplashEntry() {
                 }}
                 className="btn-secondary w-full sm:w-auto"
               >
-                Auto Upload (Tool E)
+                Auto Upload
               </button>
             </div>
           </div>
@@ -193,21 +193,21 @@ export function SplashEntry() {
                 onClick={() => handleDateMode('c')}
                 className="btn-primary w-full sm:w-auto"
               >
-                Upload Checker (Tool C)
+                Upload Checker
               </button>
               <button
                 type="button"
                 onClick={() => handleDateMode('d')}
                 className="btn-secondary w-full sm:w-auto"
               >
-                In-Game QA (Tool D)
+                In-Game QA
               </button>
               <button
                 type="button"
                 onClick={() => handleDateMode('e')}
                 className="btn-secondary w-full sm:w-auto"
               >
-                Auto Upload (Tool E)
+                Auto Upload
               </button>
             </div>
           </div>

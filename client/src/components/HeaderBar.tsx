@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { normalizeDash } from '../utils/dash';
 
 export function HeaderBar() {
   const navigate = useNavigate();
@@ -15,9 +16,11 @@ export function HeaderBar() {
           <p className="text-2xs font-semibold uppercase tracking-wide text-ink-muted">
             Active scope
           </p>
-          <p className="truncate font-medium text-ink">{selectedWeek.label}</p>
+          <p className="truncate font-medium text-ink">
+            {normalizeDash(selectedWeek.label)}
+          </p>
           <p className="truncate text-2xs text-ink-muted">
-            Sheet tab: {selectedWeek.tabName}
+            Sheet tab: {normalizeDash(selectedWeek.tabName)}
           </p>
         </div>
         <button
